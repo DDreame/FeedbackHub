@@ -7,6 +7,9 @@ edition = "2024"
 axum = "0.8.7"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.48.0", features = ["macros", "net", "rt-multi-thread"] }
+uuid = { version = "1.11", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
 
 [dev-dependencies]
 http-body-util = "0.1.3"
