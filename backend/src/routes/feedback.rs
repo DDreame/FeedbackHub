@@ -109,18 +109,26 @@ async fn create_feedback(
     Json(payload): Json<CreateFeedbackRequest>,
 ) -> Result<(StatusCode, Json<CreateFeedbackResponse>), (StatusCode, Json<ErrorResponse>)> {
     // Verify project exists to prevent orphan feedback rows.
-    let project_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1)",
-    )
-    .bind(payload.project_id)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    let project_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1)")
+            .bind(payload.project_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     if !project_exists {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse { error: "project not found".into() }),
+            Json(ErrorResponse {
+                error: "project not found".into(),
+            }),
         ));
     }
 
@@ -293,6 +301,20 @@ mod tests {
         std::env::var("DATABASE_URL").is_ok()
     }
 
+    /// Seeds a project row so FK validation passes.
+    async fn seed_project(pool: &PgPool, project_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO projects (id, developer_id, name, api_key, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW())",
+        )
+        .bind(project_id)
+        .bind(Uuid::now_v7())
+        .bind("test-project")
+        .bind("test-api-key")
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     #[tokio::test]
     #[ignore = "requires DATABASE_URL to be set"]
     async fn create_and_fetch_feedback() {
@@ -303,6 +325,8 @@ mod tests {
         let app = app_with_pool(pool.clone());
 
         let project_id = Uuid::now_v7();
+        seed_project(&pool, project_id).await.expect("project seed");
+
         let payload = CreateFeedbackRequest {
             project_id,
             app_context: "TestApp v1.0".into(),
@@ -359,8 +383,9 @@ mod tests {
         let app = app_with_pool(pool.clone());
 
         let project_id = Uuid::now_v7();
+        seed_project(&pool, project_id).await.expect("project seed");
 
-        // Create two feedback items for different projects
+        // Create two feedback items for the same project
         for i in 0..2 {
             let payload = CreateFeedbackRequest {
                 project_id,
