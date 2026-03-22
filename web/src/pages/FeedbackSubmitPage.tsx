@@ -4,6 +4,7 @@ import {
   createThreadAtomic,
   STATUS_LABELS,
 } from '../services/api';
+import { formatRefNumber } from '../utils/formatRefNumber';
 
 const CATEGORIES = [
   { id: '遇到问题', label: '遇到问题', icon: '❌' },
@@ -46,11 +47,16 @@ export function FeedbackSubmitPage() {
     setError(null);
 
     try {
+      // Auto-generate summary: first line, capped at 120 chars
+      const body = content.trim();
+      const firstLine = body.split('\n')[0];
+      const summary = firstLine.length > 120 ? firstLine.slice(0, 117) + '...' : firstLine;
+
       // Atomic: create thread + initial message in a single transaction
       const result = await createThreadAtomic(
         selectedCategory,
-        content.trim(),
-        content.trim(),
+        summary,
+        body,
         allowContact ? contact : undefined,
         { current_route: `/submit/${appKey}` }
       );
@@ -181,7 +187,9 @@ export function FeedbackSubmitPage() {
             <div className="confirmation-details">
               <div className="detail-row">
                 <span className="detail-label">反馈编号</span>
-                <span className="detail-value">{submitResult.threadId}</span>
+                <span className="detail-value" title={submitResult.threadId}>
+                  {formatRefNumber(submitResult.threadId)}
+                </span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">类型</span>
