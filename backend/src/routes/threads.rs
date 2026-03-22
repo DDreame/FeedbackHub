@@ -2047,7 +2047,8 @@ mod tests {
         );
 
         // Developer adds a reply
-        let reply_body = serde_json::json!({ "body": "Developer reply" });
+        let reply_body =
+            serde_json::json!({ "author_type": "developer", "body": "Developer reply" });
         let response = app
             .clone()
             .oneshot(
