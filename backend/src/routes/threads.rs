@@ -1787,4 +1787,44 @@ mod tests {
         let json = serde_json::to_value(&err).unwrap();
         assert_eq!(json["error"], "test error");
     }
+
+    #[test]
+    fn rate_limiter_blocks_after_threshold() {
+        use crate::routes::feedback::RateLimiter;
+        let limiter = RateLimiter::new(3, 60); // 3 requests per 60 seconds
+        let reporter_id = Uuid::new_v4();
+
+        // First 3 requests should be allowed
+        assert!(limiter.is_allowed(reporter_id));
+        assert!(limiter.is_allowed(reporter_id));
+        assert!(limiter.is_allowed(reporter_id));
+
+        // 4th request should be blocked
+        assert!(!limiter.is_allowed(reporter_id));
+    }
+
+    #[test]
+    fn rate_limiter_clone_shares_state() {
+        use crate::routes::feedback::RateLimiter;
+        let limiter = RateLimiter::new(2, 60);
+        let reporter_id = Uuid::new_v4();
+
+        // Use original
+        assert!(limiter.is_allowed(reporter_id));
+        assert!(limiter.is_allowed(reporter_id));
+
+        // Clone should share state - 3rd request blocked
+        let limiter2 = limiter.clone();
+        assert!(!limiter2.is_allowed(reporter_id));
+    }
+
+    #[test]
+    fn inbox_query_default_values() {
+        let query: InboxQuery = InboxQuery::default();
+        assert!(query.status.is_none());
+        assert!(query.category.is_none());
+        assert!(query.assignee_id.is_none());
+        assert!(query.limit.is_none());
+        assert!(query.offset.is_none());
+    }
 }
