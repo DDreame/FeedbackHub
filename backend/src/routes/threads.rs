@@ -1827,4 +1827,186 @@ mod tests {
         assert!(query.limit.is_none());
         assert!(query.offset.is_none());
     }
+
+    // ---------------------------------------------------------------------------
+    // DB-backed integration tests (require DATABASE_URL)
+    // ---------------------------------------------------------------------------
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn dev_assign_returns_404_for_missing_thread() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool);
+
+        let fake_thread_id = Uuid::now_v7();
+        let body = serde_json::json!({ "assignee_id": Uuid::now_v7().to_string() });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!(
+                        "/v1/dev/feedback/threads/{}/assign",
+                        fake_thread_id
+                    ))
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn dev_unassign_returns_404_for_missing_thread() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool);
+
+        let fake_thread_id = Uuid::now_v7();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!(
+                        "/v1/dev/feedback/threads/{}/assign",
+                        fake_thread_id
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn dev_mark_spam_returns_404_for_missing_thread() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool);
+
+        let fake_thread_id = Uuid::now_v7();
+        let body = serde_json::json!({ "is_spam": true });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/dev/feedback/threads/{}/spam", fake_thread_id))
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn dev_list_threads_with_status_filter() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool.clone());
+
+        let thread_id = Uuid::now_v7();
+        let reporter_id = Uuid::now_v7();
+        seed_thread(&pool, thread_id, reporter_id, "in_review")
+            .await
+            .expect("seed thread");
+
+        // Filter by status=in_review should return the thread
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/dev/feedback/threads?status=in_review")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        let threads = json.as_array().expect("response should be array");
+        assert!(
+            threads
+                .iter()
+                .any(|t| t.get("id").and_then(|v| v.as_str())
+                    == Some(thread_id.to_string().as_str())),
+            "should contain seeded thread"
+        );
+
+        // Clean up
+        let _ = sqlx::query("DELETE FROM feedback_threads WHERE id = $1")
+            .bind(thread_id)
+            .execute(&pool)
+            .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn dev_list_threads_with_invalid_status_filter() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool.clone());
+
+        let thread_id = Uuid::now_v7();
+        let reporter_id = Uuid::now_v7();
+        seed_thread(&pool, thread_id, reporter_id, "in_review")
+            .await
+            .expect("seed thread");
+
+        // Invalid status should be ignored (returns all threads, not filtered)
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/dev/feedback/threads?status=invalid_status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        let threads = json.as_array().expect("response should be array");
+        // Invalid status should be ignored - thread should still appear
+        assert!(
+            threads
+                .iter()
+                .any(|t| t.get("id").and_then(|v| v.as_str())
+                    == Some(thread_id.to_string().as_str())),
+            "invalid status should be ignored and thread should still appear"
+        );
+
+        // Clean up
+        let _ = sqlx::query("DELETE FROM feedback_threads WHERE id = $1")
+            .bind(thread_id)
+            .execute(&pool)
+            .await;
+    }
 }
