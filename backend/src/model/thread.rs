@@ -109,6 +109,12 @@ pub struct FeedbackThread {
     pub context_current_route: String,
     pub context_captured_at: DateTime<Utc>,
     pub context_reporter_account_id: Option<String>,
+    // Assignee tracking
+    pub assignee_id: Option<Uuid>,
+    // Spam flag
+    pub is_spam: bool,
+    // Unread tracking for internal notes
+    pub last_internal_note_at: Option<DateTime<Utc>>,
 }
 
 impl FeedbackThread {
@@ -135,6 +141,7 @@ pub struct FeedbackMessage {
     pub author_type: String,
     pub body: String,
     pub created_at: DateTime<Utc>,
+    pub is_internal: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +199,22 @@ pub struct UpdateStatusRequest {
     pub status: ThreadStatus,
 }
 
+/// Input for adding an internal note (developer-only).
+#[derive(Debug, Deserialize)]
+pub struct InternalNoteRequest {
+    pub body: String,
+}
+
+/// Input for unassigning a thread (clears assignee_id).
+#[derive(Debug, Deserialize)]
+pub struct UnassignRequest {}
+
+/// Input for marking a thread as spam.
+#[derive(Debug, Deserialize)]
+pub struct MarkSpamRequest {
+    pub is_spam: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Response types
 // ---------------------------------------------------------------------------
@@ -226,6 +249,47 @@ impl From<FeedbackThread> for ThreadResponse {
             updated_at: t.updated_at,
             closed_at: t.closed_at,
             context,
+        }
+    }
+}
+
+/// DeveloperThreadResponse includes developer-only fields: assignee_id, is_spam, last_internal_note_at
+#[derive(Debug, Serialize)]
+pub struct DeveloperThreadResponse {
+    pub id: Uuid,
+    pub reporter_id: Uuid,
+    pub reporter_contact: Option<String>,
+    pub category: String,
+    pub status: String,
+    pub summary: String,
+    pub latest_public_message_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+    pub context: ContextSnapshot,
+    pub assignee_id: Option<Uuid>,
+    pub is_spam: bool,
+    pub last_internal_note_at: Option<DateTime<Utc>>,
+}
+
+impl From<FeedbackThread> for DeveloperThreadResponse {
+    fn from(t: FeedbackThread) -> Self {
+        let context = t.context();
+        DeveloperThreadResponse {
+            id: t.id,
+            reporter_id: t.reporter_id,
+            reporter_contact: t.reporter_contact,
+            category: t.category,
+            status: t.status,
+            summary: t.summary,
+            latest_public_message_at: t.latest_public_message_at,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+            closed_at: t.closed_at,
+            context,
+            assignee_id: t.assignee_id,
+            is_spam: t.is_spam,
+            last_internal_note_at: t.last_internal_note_at,
         }
     }
 }
@@ -334,6 +398,9 @@ mod tests {
             context_current_route: "/home".to_string(),
             context_captured_at: Utc::now(),
             context_reporter_account_id: Some("user123".to_string()),
+            assignee_id: None,
+            is_spam: false,
+            last_internal_note_at: None,
         };
         let ctx = thread.context();
         assert_eq!(ctx.app_version, "1.0.0");
@@ -362,6 +429,9 @@ mod tests {
             context_current_route: "/home".to_string(),
             context_captured_at: Utc::now(),
             context_reporter_account_id: None,
+            assignee_id: None,
+            is_spam: false,
+            last_internal_note_at: None,
         };
         let response: ThreadResponse = thread.into();
         assert_eq!(response.category, "bug");

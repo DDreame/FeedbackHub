@@ -65,6 +65,7 @@ pub fn project_routes(state: AppState) -> Router {
 mod tests {
     use super::*;
     use crate::db::test_pool;
+    use crate::routes::feedback::RateLimiter;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use http_body_util::BodyExt;
@@ -72,7 +73,10 @@ mod tests {
     use tower::util::ServiceExt;
 
     fn app_with_pool(pool: PgPool) -> Router {
-        project_routes(AppState { db: pool })
+        project_routes(AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(1000, 60),
+        })
     }
 
     fn is_database_available() -> bool {

@@ -1,21 +1,24 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use chrono::Utc;
+use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::model::thread::{
     AddMessageRequest, ContextSnapshot, CreateThreadAtomicRequest, CreateThreadAtomicResponse,
-    CreateThreadRequest, CreateThreadResponse, FeedbackMessage, FeedbackThread, MessageResponse,
-    ThreadResponse, ThreadStatus, UpdateStatusRequest,
+    CreateThreadRequest, CreateThreadResponse, DeveloperThreadResponse, FeedbackMessage,
+    FeedbackThread, InternalNoteRequest, MarkSpamRequest, MessageResponse, ThreadResponse,
+    ThreadStatus, UpdateStatusRequest,
 };
 
-use super::feedback::AppState;
+#[allow(unused_imports)]
+use super::feedback::{AppState, RateLimiter};
 
 fn extract_reporter_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
@@ -66,6 +69,16 @@ async fn create_thread(
             error: "X-Reporter-Id header required".to_string(),
         }),
     ))?;
+
+    // Rate limit check
+    if !state.rate_limiter.is_allowed(reporter_id) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "rate limit exceeded, please try again later".to_string(),
+            }),
+        ));
+    }
 
     let id = Uuid::now_v7();
     let now = Utc::now();
@@ -126,6 +139,16 @@ async fn create_thread_atomic(
             error: "X-Reporter-Id header required".to_string(),
         }),
     ))?;
+
+    // Rate limit check
+    if !state.rate_limiter.is_allowed(reporter_id) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "rate limit exceeded, please try again later".to_string(),
+            }),
+        ));
+    }
 
     let thread_id = Uuid::now_v7();
     let now = Utc::now();
@@ -188,7 +211,7 @@ async fn create_thread_atomic(
     let message_id = if let Some(body) = &payload.initial_message {
         let msg_id = Uuid::now_v7();
         sqlx::query(
-            r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at) VALUES ($1, $2, 'reporter', $3, $4)"#,
+            r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'reporter', $3, $4, FALSE)"#,
         )
         .bind(msg_id)
         .bind(thread_id)
@@ -243,7 +266,8 @@ async fn list_my_threads(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads
         WHERE reporter_id = $1
         ORDER BY latest_public_message_at DESC
@@ -284,7 +308,8 @@ async fn get_my_thread(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads
         WHERE id = $1
         "#,
@@ -337,6 +362,16 @@ async fn add_message(
         }),
     ))?;
 
+    // Rate limit check for message append
+    if !state.rate_limiter.is_allowed(reporter_id) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "rate limit exceeded, please try again later".to_string(),
+            }),
+        ));
+    }
+
     // Verify thread ownership
     let thread: Option<FeedbackThread> = sqlx::query_as(
         r#"
@@ -344,7 +379,8 @@ async fn add_message(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -380,7 +416,7 @@ async fn add_message(
     let now = Utc::now();
 
     sqlx::query(
-        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at) VALUES ($1, $2, $3, $4, $5)"#,
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, $3, $4, $5, FALSE)"#,
     )
     .bind(id)
     .bind(thread_id)
@@ -415,6 +451,7 @@ async fn add_message(
         author_type: "reporter".to_string(),
         body: payload.body,
         created_at: now,
+        is_internal: false,
     };
 
     Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
@@ -439,7 +476,8 @@ async fn list_my_messages(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads WHERE id = $1"#,
     )
     .bind(thread_id)
@@ -471,7 +509,7 @@ async fn list_my_messages(
     }
 
     let rows: Vec<FeedbackMessage> = sqlx::query_as(
-        r#"SELECT id, thread_id, author_type, body, created_at FROM feedback_messages WHERE thread_id = $1 ORDER BY created_at ASC"#,
+        r#"SELECT id, thread_id, author_type, body, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 AND is_internal = FALSE ORDER BY created_at ASC"#,
     )
     .bind(thread_id)
     .fetch_all(&state.db)
@@ -486,33 +524,114 @@ async fn list_my_messages(
 // Developer-side API
 // ---------------------------------------------------------------------------
 
+/// Query parameters for developer inbox listing
+#[derive(Debug, Deserialize, Default)]
+pub struct InboxQuery {
+    pub status: Option<String>,
+    pub category: Option<String>,
+    pub assignee_id: Option<Uuid>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
 /// GET /v1/dev/feedback/threads
+/// Developer inbox with optional filtering by status, category, assignee
+/// and pagination via limit/offset (default limit=20, offset=0)
 async fn dev_list_threads(
     State(state): State<AppState>,
+    Query(query): Query<InboxQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
-    let rows: Vec<FeedbackThread> = sqlx::query_as(
-        r#"
-        SELECT id, reporter_id, reporter_contact, category, status, summary,
-               latest_public_message_at, created_at, updated_at, closed_at,
-               context_app_version, context_build_number, context_os_name,
-               context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
-        FROM feedback_threads
-        ORDER BY latest_public_message_at DESC
-        "#,
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = query.offset.unwrap_or(0);
 
-    let response: Vec<ThreadResponse> = rows.into_iter().map(ThreadResponse::from).collect();
+    // Build dynamic query with optional filters
+    let rows: Vec<FeedbackThread> =
+        if query.status.is_some() || query.category.is_some() || query.assignee_id.is_some() {
+            let status_filter = query
+                .status
+                .as_ref()
+                .map(|s| format!("status = '{}'", s))
+                .unwrap_or_default();
+            let category_filter = query
+                .category
+                .as_ref()
+                .map(|c| format!("category = '{}'", c))
+                .unwrap_or_default();
+            let assignee_filter = query
+                .assignee_id
+                .map(|a| format!("assignee_id = '{}'", a))
+                .unwrap_or_default();
+
+            let filters: Vec<String> = vec![status_filter, category_filter, assignee_filter]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            let where_clause = if filters.is_empty() {
+                String::new()
+            } else {
+                format!("WHERE {}", filters.join(" AND "))
+            };
+
+            let query_str = format!(
+                r#"
+            SELECT id, reporter_id, reporter_contact, category, status, summary,
+                   latest_public_message_at, created_at, updated_at, closed_at,
+                   context_app_version, context_build_number, context_os_name,
+                   context_os_version, context_device_model, context_locale,
+                   context_current_route, context_captured_at, context_reporter_account_id,
+                   assignee_id, is_spam, last_internal_note_at
+            FROM feedback_threads
+            {}
+            ORDER BY latest_public_message_at DESC
+            LIMIT {} OFFSET {}
+            "#,
+                where_clause, limit, offset
+            );
+
+            sqlx::query_as::<_, FeedbackThread>(&query_str)
+                .fetch_all(&state.db)
+                .await
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: e.to_string(),
+                        }),
+                    )
+                })?
+        } else {
+            sqlx::query_as(
+                r#"
+            SELECT id, reporter_id, reporter_contact, category, status, summary,
+                   latest_public_message_at, created_at, updated_at, closed_at,
+                   context_app_version, context_build_number, context_os_name,
+                   context_os_version, context_device_model, context_locale,
+                   context_current_route, context_captured_at, context_reporter_account_id,
+                   assignee_id, is_spam, last_internal_note_at
+            FROM feedback_threads
+            ORDER BY latest_public_message_at DESC
+            LIMIT $1 OFFSET $2
+            "#,
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+        };
+
+    let response: Vec<DeveloperThreadResponse> = rows
+        .into_iter()
+        .map(DeveloperThreadResponse::from)
+        .collect();
     Ok(Json(response))
 }
 
@@ -527,7 +646,8 @@ async fn dev_get_thread(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -544,7 +664,7 @@ async fn dev_get_thread(
     })?;
 
     match row {
-        Some(thread) => Ok(Json(ThreadResponse::from(thread))),
+        Some(thread) => Ok(Json(DeveloperThreadResponse::from(thread))),
         None => Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -588,7 +708,7 @@ async fn dev_reply(
     let now = Utc::now();
 
     sqlx::query(
-        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at) VALUES ($1, $2, 'developer', $3, $4)"#,
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, FALSE)"#,
     )
     .bind(id)
     .bind(thread_id)
@@ -613,6 +733,7 @@ async fn dev_reply(
         author_type: "developer".to_string(),
         body: payload.body,
         created_at: now,
+        is_internal: false,
     };
 
     Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
@@ -696,7 +817,8 @@ async fn dev_update_status(
                latest_public_message_at, created_at, updated_at, closed_at,
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -713,7 +835,7 @@ async fn dev_update_status(
     })?;
 
     match row {
-        Some(thread) => Ok(Json(ThreadResponse::from(thread))),
+        Some(thread) => Ok(Json(DeveloperThreadResponse::from(thread))),
         None => Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -730,13 +852,243 @@ struct AssignOkResponse {
 
 /// POST /v1/dev/feedback/threads/:thread_id/assign
 async fn dev_assign(
-    State(_state): State<AppState>,
-    Path(_thread_id): Path<Uuid>,
-    Json(_payload): Json<serde_json::Value>,
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+    Json(payload): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
-    // Assign implementation - for now just return success
-    // TODO: integrate with actual auth/developer identity
+    let assignee_id = payload
+        .get("assignee_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok());
+
+    let now = Utc::now();
+    sqlx::query(r#"UPDATE feedback_threads SET assignee_id = $1, updated_at = $2 WHERE id = $3"#)
+        .bind(assignee_id)
+        .bind(now)
+        .bind(thread_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
     Ok(Json(AssignOkResponse { status: "ok" }))
+}
+
+/// DELETE /v1/dev/feedback/threads/:thread_id/assign
+/// Unassign: clears assignee_id to NULL
+async fn dev_unassign(
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let now = Utc::now();
+    sqlx::query(r#"UPDATE feedback_threads SET assignee_id = NULL, updated_at = $1 WHERE id = $2"#)
+        .bind(now)
+        .bind(thread_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(Json(AssignOkResponse { status: "ok" }))
+}
+
+/// POST /v1/dev/feedback/threads/:thread_id/internal-note
+/// Add an internal note (developer-only, not visible to reporter)
+async fn dev_add_internal_note(
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+    Json(payload): Json<InternalNoteRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify thread exists
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+
+    if !exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
+
+    let id = Uuid::now_v7();
+    let now = Utc::now();
+
+    sqlx::query(
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, TRUE)"#,
+    )
+    .bind(id)
+    .bind(thread_id)
+    .bind(&payload.body)
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+
+    // Update last_internal_note_at for unread tracking
+    sqlx::query(
+        r#"UPDATE feedback_threads SET last_internal_note_at = $1, updated_at = $1 WHERE id = $2"#,
+    )
+    .bind(now)
+    .bind(thread_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let message = FeedbackMessage {
+        id,
+        thread_id,
+        author_type: "developer".to_string(),
+        body: payload.body,
+        created_at: now,
+        is_internal: true,
+    };
+
+    Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
+}
+
+/// GET /v1/dev/feedback/threads/:thread_id/messages
+/// Developer message list - includes internal notes
+async fn dev_list_messages(
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let rows: Vec<FeedbackMessage> = sqlx::query_as(
+        r#"SELECT id, thread_id, author_type, body, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 ORDER BY created_at ASC"#,
+    )
+    .bind(thread_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+
+    let response: Vec<MessageResponse> = rows.into_iter().map(MessageResponse::from).collect();
+    Ok(Json(response))
+}
+
+/// POST /v1/dev/feedback/threads/:thread_id/spam
+/// Mark or unmark a thread as spam
+async fn dev_mark_spam(
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+    Json(payload): Json<MarkSpamRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let now = Utc::now();
+    sqlx::query(r#"UPDATE feedback_threads SET is_spam = $1, updated_at = $2 WHERE id = $3"#)
+        .bind(payload.is_spam)
+        .bind(now)
+        .bind(thread_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(Json(AssignOkResponse { status: "ok" }))
+}
+
+/// GET /v1/feedback/threads/:thread_id/unread
+/// Check if reporter has unread internal notes (developer added notes since last visit)
+async fn check_reporter_unread(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    // Verify thread ownership
+    let thread: Option<FeedbackThread> = sqlx::query_as(
+        r#"SELECT id, reporter_id, reporter_contact, category, status, summary,
+               latest_public_message_at, created_at, updated_at, closed_at,
+               context_app_version, context_build_number, context_os_name,
+               context_os_version, context_device_model, context_locale,
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
+        FROM feedback_threads WHERE id = $1"#,
+    )
+    .bind(thread_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let thread = thread.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
+    ))?;
+
+    if thread.reporter_id != reporter_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "not your thread".to_string(),
+            }),
+        ));
+    }
+
+    // For now, simple response - has_unread is true if last_internal_note_at > closed_at
+    // In a real implementation, we'd track per-reporter last read timestamps
+    let has_unread =
+        thread.last_internal_note_at.is_some() && thread.last_internal_note_at > thread.closed_at;
+
+    #[derive(Serialize)]
+    struct UnreadResponse {
+        has_unread: bool,
+        last_internal_note_at: Option<chrono::DateTime<Utc>>,
+    }
+
+    Ok(Json(UnreadResponse {
+        has_unread,
+        last_internal_note_at: thread.last_internal_note_at,
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -758,6 +1110,10 @@ pub fn thread_routes(state: AppState) -> Router {
             "/v1/feedback/threads/{thread_id}/messages",
             get(list_my_messages),
         )
+        .route(
+            "/v1/feedback/threads/{thread_id}/unread",
+            get(check_reporter_unread),
+        )
         // Developer-side
         .route("/v1/dev/feedback/threads", get(dev_list_threads))
         .route("/v1/dev/feedback/threads/{thread_id}", get(dev_get_thread))
@@ -772,6 +1128,22 @@ pub fn thread_routes(state: AppState) -> Router {
         .route(
             "/v1/dev/feedback/threads/{thread_id}/assign",
             post(dev_assign),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/assign",
+            delete(dev_unassign),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/internal-note",
+            post(dev_add_internal_note),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/messages",
+            get(dev_list_messages),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/spam",
+            post(dev_mark_spam),
         )
         .with_state(state)
 }
@@ -790,7 +1162,10 @@ mod tests {
     use tower::util::ServiceExt;
 
     fn app_with_pool(pool: sqlx::PgPool) -> Router {
-        thread_routes(AppState { db: pool })
+        thread_routes(AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(1000, 60),
+        })
     }
 
     fn is_database_available() -> bool {

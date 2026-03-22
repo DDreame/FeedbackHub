@@ -6,14 +6,73 @@ use axum::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use crate::model::feedback::{Feedback, UpdateFeedback};
 
-/// Shared application state holding the database pool.
+/// Simple in-memory rate limiter using token bucket algorithm
+pub struct RateLimiter {
+    // Map from reporter_id to (last_request_time, request_count_in_window)
+    state: std::sync::Mutex<HashMap<Uuid, (Instant, usize)>>,
+    max_requests: usize,
+    window_secs: u64,
+}
+
+impl RateLimiter {
+    pub fn new(max_requests: usize, window_secs: u64) -> Self {
+        Self {
+            state: std::sync::Mutex::new(HashMap::new()),
+            max_requests,
+            window_secs,
+        }
+    }
+
+    pub fn is_allowed(&self, reporter_id: Uuid) -> bool {
+        let mut state = self.state.lock().unwrap();
+        let now = Instant::now();
+        let window = Duration::from_secs(self.window_secs);
+
+        if let Some((last_time, count)) = state.get(&reporter_id).copied() {
+            if now.duration_since(last_time) < window {
+                if count >= self.max_requests {
+                    return false;
+                }
+                state.insert(reporter_id, (last_time, count + 1));
+            } else {
+                // Window expired, reset
+                state.insert(reporter_id, (now, 1));
+            }
+        } else {
+            state.insert(reporter_id, (now, 1));
+        }
+        true
+    }
+
+    pub fn cleanup(&self) {
+        let mut state = self.state.lock().unwrap();
+        let now = Instant::now();
+        let window = Duration::from_secs(self.window_secs);
+        state.retain(|_, (last_time, _)| now.duration_since(*last_time) < window);
+    }
+}
+
+impl Clone for RateLimiter {
+    fn clone(&self) -> Self {
+        Self {
+            state: std::sync::Mutex::new(HashMap::new()), // Fresh state for clones
+            max_requests: self.max_requests,
+            window_secs: self.window_secs,
+        }
+    }
+}
+
+/// Shared application state holding the database pool and rate limiter.
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    pub rate_limiter: RateLimiter,
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +349,10 @@ mod tests {
     use tower::util::ServiceExt;
 
     fn app_with_pool(pool: PgPool) -> Router {
-        feedback_routes(AppState { db: pool })
+        feedback_routes(AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(1000, 60),
+        })
     }
 
     fn json_body<T: Serialize>(value: &T) -> String {

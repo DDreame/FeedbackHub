@@ -3,7 +3,7 @@ pub mod model;
 pub mod routes;
 
 use axum::{Json, Router, routing::get};
-use routes::feedback::{AppState, feedback_routes};
+use routes::feedback::{AppState, RateLimiter, feedback_routes};
 use routes::project::project_routes;
 use serde::Serialize;
 
@@ -16,6 +16,7 @@ struct HealthResponse {
 pub fn app() -> Router {
     app_with_state(AppState {
         db: create_pool_from_env(),
+        rate_limiter: RateLimiter::new(10, 60), // 10 requests per 60 seconds
     })
 }
 
