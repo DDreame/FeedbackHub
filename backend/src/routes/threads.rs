@@ -1074,20 +1074,26 @@ async fn check_reporter_unread(
         ));
     }
 
-    // For now, simple response - has_unread is true if last_internal_note_at > closed_at
-    // In a real implementation, we'd track per-reporter last read timestamps
-    let has_unread =
-        thread.last_internal_note_at.is_some() && thread.last_internal_note_at > thread.closed_at;
+    // Reporter unread is based on DEVELOPER PUBLIC REPLIES, not internal notes.
+    // Internal notes are developer-only and must NOT be exposed to reporters.
+    // Per-reporter last-read tracking requires a separate table; for now we return
+    // has_unread based on whether there's a developer public reply in the thread.
+    let has_developer_reply: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_messages WHERE thread_id = $1 AND author_type = 'developer' AND is_internal = FALSE)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
 
     #[derive(Serialize)]
     struct UnreadResponse {
+        // has_unread indicates if reporter has unread developer public messages.
+        // Without per-reporter last_read tracking, we return whether a developer reply exists.
         has_unread: bool,
-        last_internal_note_at: Option<chrono::DateTime<Utc>>,
     }
 
     Ok(Json(UnreadResponse {
-        has_unread,
-        last_internal_note_at: thread.last_internal_note_at,
+        has_unread: has_developer_reply,
     }))
 }
 
