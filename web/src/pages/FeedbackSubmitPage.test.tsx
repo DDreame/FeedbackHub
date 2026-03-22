@@ -51,7 +51,7 @@ describe('FeedbackSubmitPage', () => {
   })
 
   describe('Submit Flow', () => {
-    it('calls createThreadAtomic with correct arguments on submit', async () => {
+    it('calls createThreadAtomic with summary as first line of content', async () => {
       mockCreateThreadAtomic.mockResolvedValueOnce({
         thread_id: 'test-thread-id',
         message_id: 'test-message-id',
@@ -84,9 +84,59 @@ describe('FeedbackSubmitPage', () => {
       })
     })
 
-    it('shows confirmation page with thread ID on success', async () => {
+    it('uses only the first line as summary for multi-line content', async () => {
       mockCreateThreadAtomic.mockResolvedValueOnce({
-        thread_id: 'test-thread-id-123',
+        thread_id: 'multiline-thread-id',
+        message_id: 'test-message-id',
+      })
+
+      renderSubmitPage()
+      fireEvent.click(screen.getByText('遇到问题'))
+
+      const multiLineContent = '第一行是摘要\n第二行是详细描述\n第三行更多细节'
+      const textarea = screen.getByPlaceholderText('请详细描述您的问题或建议...')
+      fireEvent.change(textarea, { target: { value: multiLineContent } })
+      fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+
+      await waitFor(() => {
+        expect(mockCreateThreadAtomic).toHaveBeenCalledWith(
+          '遇到问题',
+          '第一行是摘要',
+          multiLineContent,
+          undefined,
+          expect.objectContaining({
+            current_route: '/submit/demo-app',
+          }),
+        )
+      })
+    })
+
+    it('truncates summary at 120 chars with ellipsis for long first line', async () => {
+      mockCreateThreadAtomic.mockResolvedValueOnce({
+        thread_id: 'long-thread-id',
+        message_id: 'test-message-id',
+      })
+
+      renderSubmitPage()
+      fireEvent.click(screen.getByText('遇到问题'))
+
+      const longLine = 'A'.repeat(200)
+      const textarea = screen.getByPlaceholderText('请详细描述您的问题或建议...')
+      fireEvent.change(textarea, { target: { value: longLine } })
+      fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+
+      await waitFor(() => {
+        const calledSummary = mockCreateThreadAtomic.mock.calls[0][1]
+        const calledBody = mockCreateThreadAtomic.mock.calls[0][2]
+        expect(calledSummary).toBe('A'.repeat(117) + '...')
+        expect(calledSummary.length).toBe(120)
+        expect(calledBody).toBe(longLine)
+      })
+    })
+
+    it('shows confirmation page with human-friendly ref number on success', async () => {
+      mockCreateThreadAtomic.mockResolvedValueOnce({
+        thread_id: '0193a7b2-c3d4-7e8f-9a0b-1c2d3e4f5a6b',
         message_id: 'test-message-id',
       })
 
@@ -98,7 +148,8 @@ describe('FeedbackSubmitPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
 
       await waitFor(() => {
-        expect(screen.getByText('test-thread-id-123')).toBeInTheDocument()
+        // Should show human-friendly ref number, not raw UUID
+        expect(screen.getByText('FB-A7B2C3')).toBeInTheDocument()
         expect(screen.getByText('感谢您的反馈')).toBeInTheDocument()
       })
     })
