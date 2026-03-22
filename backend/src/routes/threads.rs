@@ -870,26 +870,61 @@ async fn dev_assign(
     Path(thread_id): Path<Uuid>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify thread exists
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+
+    if !exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
+
     let assignee_id = payload
         .get("assignee_id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
 
     let now = Utc::now();
-    sqlx::query(r#"UPDATE feedback_threads SET assignee_id = $1, updated_at = $2 WHERE id = $3"#)
-        .bind(assignee_id)
-        .bind(now)
-        .bind(thread_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let result = sqlx::query(
+        r#"UPDATE feedback_threads SET assignee_id = $1, updated_at = $2 WHERE id = $3"#,
+    )
+    .bind(assignee_id)
+    .bind(now)
+    .bind(thread_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
 
     Ok(Json(AssignOkResponse { status: "ok" }))
 }
@@ -900,20 +935,55 @@ async fn dev_unassign(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify thread exists
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+
+    if !exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
+
     let now = Utc::now();
-    sqlx::query(r#"UPDATE feedback_threads SET assignee_id = NULL, updated_at = $1 WHERE id = $2"#)
-        .bind(now)
-        .bind(thread_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let result = sqlx::query(
+        r#"UPDATE feedback_threads SET assignee_id = NULL, updated_at = $1 WHERE id = $2"#,
+    )
+    .bind(now)
+    .bind(thread_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    if result.rows_affected() == 0 {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
 
     Ok(Json(AssignOkResponse { status: "ok" }))
 }
@@ -1017,21 +1087,55 @@ async fn dev_mark_spam(
     Path(thread_id): Path<Uuid>,
     Json(payload): Json<MarkSpamRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify thread exists
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+
+    if !exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
+
     let now = Utc::now();
-    sqlx::query(r#"UPDATE feedback_threads SET is_spam = $1, updated_at = $2 WHERE id = $3"#)
-        .bind(payload.is_spam)
-        .bind(now)
-        .bind(thread_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let result =
+        sqlx::query(r#"UPDATE feedback_threads SET is_spam = $1, updated_at = $2 WHERE id = $3"#)
+            .bind(payload.is_spam)
+            .bind(now)
+            .bind(thread_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+
+    if result.rows_affected() == 0 {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        ));
+    }
 
     Ok(Json(AssignOkResponse { status: "ok" }))
 }
