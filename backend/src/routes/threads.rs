@@ -2009,4 +2009,196 @@ mod tests {
             .execute(&pool)
             .await;
     }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn unread_clears_after_reporter_reads_messages() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        let app = app_with_pool(pool.clone());
+
+        let thread_id = Uuid::now_v7();
+        let reporter_id = Uuid::now_v7();
+        seed_thread(&pool, thread_id, reporter_id, "in_review")
+            .await
+            .expect("seed thread");
+
+        // Initially no unread (no dev messages)
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/v1/feedback/threads/{}/unread", thread_id))
+                    .header("X-Reporter-Id", reporter_id.to_string())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        assert_eq!(
+            json.get("has_unread").and_then(|v| v.as_bool()),
+            Some(false)
+        );
+
+        // Developer adds a reply
+        let reply_body = serde_json::json!({ "body": "Developer reply" });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/dev/feedback/threads/{}/reply", thread_id))
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(reply_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        // Now unread should be true
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/v1/feedback/threads/{}/unread", thread_id))
+                    .header("X-Reporter-Id", reporter_id.to_string())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        assert_eq!(json.get("has_unread").and_then(|v| v.as_bool()), Some(true));
+
+        // Reporter reads messages
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/v1/feedback/threads/{}/messages", thread_id))
+                    .header("X-Reporter-Id", reporter_id.to_string())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Now unread should be false
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/v1/feedback/threads/{}/unread", thread_id))
+                    .header("X-Reporter-Id", reporter_id.to_string())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        assert_eq!(
+            json.get("has_unread").and_then(|v| v.as_bool()),
+            Some(false)
+        );
+
+        // Clean up
+        let _ = sqlx::query("DELETE FROM feedback_messages WHERE thread_id = $1")
+            .bind(thread_id)
+            .execute(&pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM feedback_threads WHERE id = $1")
+            .bind(thread_id)
+            .execute(&pool)
+            .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL to be set"]
+    async fn rate_limit_blocks_after_threshold() {
+        if !is_database_available() {
+            return;
+        }
+        let pool = test_pool().await.expect("test pool");
+        // Use a limiter with low threshold for testing
+        let app = thread_routes(AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(3, 60), // 3 requests per minute
+        });
+
+        let reporter_id = Uuid::now_v7();
+        let body = serde_json::json!({
+            "reporter_id": reporter_id.to_string(),
+            "reporter_contact": null,
+            "category": "bug",
+            "summary": "Test",
+            "context": {
+                "app_version": "1.0.0",
+                "build_number": null,
+                "os_name": "iOS",
+                "os_version": "17.0",
+                "device_model": "iPhone",
+                "locale": null,
+                "current_route": "/home",
+                "reporter_account_id": null
+            }
+        });
+
+        // First 3 requests should succeed
+        for i in 0..3 {
+            let app = app.clone();
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/v1/feedback/threads")
+                        .header("Content-Type", "application/json")
+                        .header("X-Reporter-Id", reporter_id.to_string())
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::CREATED,
+                "request {} should succeed",
+                i + 1
+            );
+        }
+
+        // 4th request should be rate limited
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/feedback/threads")
+                    .header("Content-Type", "application/json")
+                    .header("X-Reporter-Id", reporter_id.to_string())
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::TOO_MANY_REQUESTS,
+            "4th request should be rate limited"
+        );
+    }
 }
