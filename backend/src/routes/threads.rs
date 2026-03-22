@@ -516,6 +516,28 @@ async fn list_my_messages(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
 
+    // Mark messages as read by updating thread_views
+    let now = Utc::now();
+    sqlx::query(
+        r#"INSERT INTO thread_views (thread_id, user_id, user_type, last_read_at)
+           VALUES ($1, $2, 'reporter', $3)
+           ON CONFLICT (thread_id, user_id, user_type)
+           DO UPDATE SET last_read_at = $3"#,
+    )
+    .bind(thread_id)
+    .bind(reporter_id)
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
     let response: Vec<MessageResponse> = rows.into_iter().map(MessageResponse::from).collect();
     Ok(Json(response))
 }
@@ -544,75 +566,31 @@ async fn dev_list_threads(
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0);
 
-    // Build dynamic query with optional filters
-    let rows: Vec<FeedbackThread> =
-        if query.status.is_some() || query.category.is_some() || query.assignee_id.is_some() {
-            let status_filter = query
-                .status
-                .as_ref()
-                .map(|s| format!("status = '{}'", s))
-                .unwrap_or_default();
-            let category_filter = query
-                .category
-                .as_ref()
-                .map(|c| format!("category = '{}'", c))
-                .unwrap_or_default();
-            let assignee_filter = query
-                .assignee_id
-                .map(|a| format!("assignee_id = '{}'", a))
-                .unwrap_or_default();
-
-            let filters: Vec<String> = vec![status_filter, category_filter, assignee_filter]
-                .into_iter()
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            let where_clause = if filters.is_empty() {
-                String::new()
-            } else {
-                format!("WHERE {}", filters.join(" AND "))
-            };
-
-            let query_str = format!(
-                r#"
-            SELECT id, reporter_id, reporter_contact, category, status, summary,
-                   latest_public_message_at, created_at, updated_at, closed_at,
-                   context_app_version, context_build_number, context_os_name,
-                   context_os_version, context_device_model, context_locale,
-                   context_current_route, context_captured_at, context_reporter_account_id,
-                   assignee_id, is_spam, last_internal_note_at
-            FROM feedback_threads
-            {}
-            ORDER BY latest_public_message_at DESC
-            LIMIT {} OFFSET {}
-            "#,
-                where_clause, limit, offset
-            );
-
-            sqlx::query_as::<_, FeedbackThread>(&query_str)
-                .fetch_all(&state.db)
-                .await
-                .map_err(|e| {
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse {
-                            error: e.to_string(),
-                        }),
-                    )
-                })?
+    // Validate status value to prevent SQL injection
+    let status_value = query.status.as_ref().and_then(|s| {
+        if ["received", "in_review", "waiting_for_user", "closed"].contains(&s.as_str()) {
+            Some(s.clone())
         } else {
+            None
+        }
+    });
+
+    // Use parameterized query - build dynamically with bound params
+    let rows: Vec<FeedbackThread> = match (&status_value, &query.category, &query.assignee_id) {
+        (None, None, None) => {
+            // No filters - use simple query
             sqlx::query_as(
                 r#"
-            SELECT id, reporter_id, reporter_contact, category, status, summary,
-                   latest_public_message_at, created_at, updated_at, closed_at,
-                   context_app_version, context_build_number, context_os_name,
-                   context_os_version, context_device_model, context_locale,
-                   context_current_route, context_captured_at, context_reporter_account_id,
-                   assignee_id, is_spam, last_internal_note_at
-            FROM feedback_threads
-            ORDER BY latest_public_message_at DESC
-            LIMIT $1 OFFSET $2
-            "#,
+                SELECT id, reporter_id, reporter_contact, category, status, summary,
+                       latest_public_message_at, created_at, updated_at, closed_at,
+                       context_app_version, context_build_number, context_os_name,
+                       context_os_version, context_device_model, context_locale,
+                       context_current_route, context_captured_at, context_reporter_account_id,
+                       assignee_id, is_spam, last_internal_note_at
+                FROM feedback_threads
+                ORDER BY latest_public_message_at DESC
+                LIMIT $1 OFFSET $2
+                "#,
             )
             .bind(limit)
             .bind(offset)
@@ -626,7 +604,43 @@ async fn dev_list_threads(
                     }),
                 )
             })?
-        };
+        }
+        _ => {
+            // Build query with filters - use COALESCE for optional params
+            let category_pattern = query.category.as_deref().map(|c| format!("%{}%", c));
+            sqlx::query_as(
+                r#"
+                SELECT id, reporter_id, reporter_contact, category, status, summary,
+                       latest_public_message_at, created_at, updated_at, closed_at,
+                       context_app_version, context_build_number, context_os_name,
+                       context_os_version, context_device_model, context_locale,
+                       context_current_route, context_captured_at, context_reporter_account_id,
+                       assignee_id, is_spam, last_internal_note_at
+                FROM feedback_threads
+                WHERE ($1::varchar IS NULL OR status = $1)
+                  AND ($2::varchar IS NULL OR category LIKE $2)
+                  AND ($3::uuid IS NULL OR assignee_id = $3)
+                ORDER BY latest_public_message_at DESC
+                LIMIT $4 OFFSET $5
+                "#,
+            )
+            .bind(&status_value)
+            .bind(&category_pattern)
+            .bind(query.assignee_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+        }
+    };
 
     let response: Vec<DeveloperThreadResponse> = rows
         .into_iter()
@@ -1076,24 +1090,51 @@ async fn check_reporter_unread(
 
     // Reporter unread is based on DEVELOPER PUBLIC REPLIES, not internal notes.
     // Internal notes are developer-only and must NOT be exposed to reporters.
-    // Per-reporter last-read tracking requires a separate table; for now we return
-    // has_unread based on whether there's a developer public reply in the thread.
-    let has_developer_reply: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_messages WHERE thread_id = $1 AND author_type = 'developer' AND is_internal = FALSE)")
-            .bind(thread_id)
-            .fetch_one(&state.db)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    // Uses thread_views table to track per-user last read timestamps.
+
+    // Get or initialize the reporter's last read timestamp
+    let last_read_at: chrono::DateTime<Utc> = sqlx::query_scalar(
+        "SELECT last_read_at FROM thread_views WHERE thread_id = $1 AND user_id = $2 AND user_type = 'reporter'"
+    )
+    .bind(thread_id)
+    .bind(reporter_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?
+    .unwrap_or(thread.created_at); // If never read, use thread creation time
+
+    // Check if there's a developer public message after the last read timestamp
+    let has_unread: bool = sqlx::query_scalar(
+        r#"SELECT EXISTS(
+            SELECT 1 FROM feedback_messages
+            WHERE thread_id = $1
+              AND author_type = 'developer'
+              AND is_internal = FALSE
+              AND created_at > $2
+        )"#,
+    )
+    .bind(thread_id)
+    .bind(last_read_at)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
 
     #[derive(Serialize)]
     struct UnreadResponse {
-        // has_unread indicates if reporter has unread developer public messages.
-        // Without per-reporter last_read tracking, we return whether a developer reply exists.
         has_unread: bool,
+        last_read_at: chrono::DateTime<Utc>,
     }
 
     Ok(Json(UnreadResponse {
-        has_unread: has_developer_reply,
+        has_unread,
+        last_read_at,
     }))
 }
 

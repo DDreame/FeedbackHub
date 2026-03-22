@@ -12,10 +12,11 @@ use uuid::Uuid;
 
 use crate::model::feedback::{Feedback, UpdateFeedback};
 
-/// Simple in-memory rate limiter using token bucket algorithm
+/// Simple in-memory rate limiter using token bucket algorithm.
+/// Uses Arc so that all clones share the same state.
 pub struct RateLimiter {
-    // Map from reporter_id to (last_request_time, request_count_in_window)
-    state: std::sync::Mutex<HashMap<Uuid, (Instant, usize)>>,
+    // Arc ensures all clones share the same state
+    state: std::sync::Arc<std::sync::Mutex<HashMap<Uuid, (Instant, usize)>>>,
     max_requests: usize,
     window_secs: u64,
 }
@@ -23,7 +24,7 @@ pub struct RateLimiter {
 impl RateLimiter {
     pub fn new(max_requests: usize, window_secs: u64) -> Self {
         Self {
-            state: std::sync::Mutex::new(HashMap::new()),
+            state: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
             max_requests,
             window_secs,
         }
@@ -61,7 +62,7 @@ impl RateLimiter {
 impl Clone for RateLimiter {
     fn clone(&self) -> Self {
         Self {
-            state: std::sync::Mutex::new(HashMap::new()), // Fresh state for clones
+            state: std::sync::Arc::clone(&self.state),
             max_requests: self.max_requests,
             window_secs: self.window_secs,
         }
