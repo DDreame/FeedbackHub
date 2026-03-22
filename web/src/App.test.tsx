@@ -13,17 +13,20 @@ describe('App', () => {
     )
 
     expect(
-      screen.getByRole('heading', { level: 1, name: /feedback system/i }),
+      screen.getByRole('heading', { level: 1, name: /feedBack system/i }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /open intake scaffold/i }),
+      screen.getByRole('link', { name: /打开反馈入口/i }),
     ).toHaveAttribute('href', '/submit/demo-app')
     expect(
-      screen.getByRole('link', { name: /open console scaffold/i }),
+      screen.getByRole('link', { name: /查看历史/i }),
+    ).toHaveAttribute('href', '/history')
+    expect(
+      screen.getByRole('link', { name: /打开开发者控制台/i }),
     ).toHaveAttribute('href', '/console')
   })
 
-  it('renders the intake route scaffold', () => {
+  it('renders the feedback submit page', () => {
     render(
       <MemoryRouter initialEntries={['/submit/demo-app']}>
         <App />
@@ -33,10 +36,9 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: /hosted feedback intake/i,
+        name: /提交反馈/i,
       }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/app key in route: demo-app/i)).toBeInTheDocument()
   })
 
   it('renders the console route scaffold', () => {

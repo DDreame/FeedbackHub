@@ -4,6 +4,7 @@ pub mod routes;
 
 use axum::{Json, Router, routing::get};
 use routes::feedback::{AppState, feedback_routes};
+use routes::project::project_routes;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -19,8 +20,13 @@ pub fn app() -> Router {
 }
 
 pub fn app_with_state(state: AppState) -> Router {
+    let state2 = state.clone();
+    let state3 = state.clone();
     let health = Router::new().route("/api/health", get(health));
-    health.merge(feedback_routes(state))
+    health
+        .merge(feedback_routes(state))
+        .merge(project_routes(state2))
+        .merge(routes::threads::thread_routes(state3))
 }
 
 fn create_pool_from_env() -> sqlx::PgPool {

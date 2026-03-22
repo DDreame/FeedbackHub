@@ -1,21 +1,31 @@
-import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { Link, Route, Routes } from 'react-router-dom'
+import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
+import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
+import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
 
 import './App.css'
 
 const surfaces = [
   {
-    title: 'Hosted Feedback Intake',
+    title: '提交反馈',
     route: '/submit/demo-app',
     summary:
-      'Public entry point for users to send feedback with app, platform, and version context.',
-    action: 'Open intake scaffold',
+      '提交反馈，报告问题或建议。',
+    action: '打开反馈入口',
+  },
+  {
+    title: '我的反馈',
+    route: '/history',
+    summary:
+      '查看我的反馈历史和处理进度。',
+    action: '查看历史',
   },
   {
     title: 'Developer Console',
     route: '/console',
     summary:
-      'Private owner-facing inbox for reviewing, triaging, and updating feedback status.',
-    action: 'Open console scaffold',
+      '开发者控制台，查看和管理所有用户反馈。',
+    action: '打开开发者控制台',
   },
 ]
 
@@ -94,37 +104,6 @@ function HomePage() {
   )
 }
 
-function SubmitScaffoldPage() {
-  const { appKey } = useParams()
-
-  return (
-    <main className="shell">
-      <section className="detail-card">
-        <span className="eyebrow">Hosted route scaffold</span>
-        <h1>Hosted Feedback Intake</h1>
-        <p className="lead">
-          Public capture flow placeholder for the final feedback submission UI.
-        </p>
-        <p className="detail-copy">App key in route: {appKey}</p>
-        <div className="detail-grid">
-          <article className="stack-card">
-            <span className="path-label">Intake contract</span>
-            <h2>Submission context</h2>
-            <ul>
-              <li>App identifier comes from the public route.</li>
-              <li>Payload will include platform and app version in `#t6`.</li>
-              <li>Backend ingest wiring lands in Rust under `#t5` and `#t7`.</li>
-            </ul>
-          </article>
-        </div>
-        <Link className="route-link" to="/">
-          Back to scaffold home
-        </Link>
-      </section>
-    </main>
-  )
-}
-
 function ConsoleScaffoldPage() {
   return (
     <main className="shell">
@@ -158,7 +137,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/submit/:appKey" element={<SubmitScaffoldPage />} />
+      <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
+      <Route path="/history" element={<FeedbackHistoryPage />} />
+      <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
       <Route path="/console" element={<ConsoleScaffoldPage />} />
     </Routes>
   )

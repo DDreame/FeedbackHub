@@ -1,0 +1,1 @@
+-- Pre-existing migration applied before migration files were codified.

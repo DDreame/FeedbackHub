@@ -75,8 +75,8 @@ struct CreateFeedbackResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct ErrorResponse {
-    error: String,
+pub struct ErrorResponse {
+    pub error: String,
 }
 
 /// Request payload for creating a new feedback item (includes project_id).
@@ -309,7 +309,7 @@ mod tests {
         .bind(project_id)
         .bind(Uuid::now_v7())
         .bind("test-project")
-        .bind("test-api-key")
+        .bind(format!("test-api-key-{}", project_id))
         .execute(pool)
         .await?;
         Ok(())

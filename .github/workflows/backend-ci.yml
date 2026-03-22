@@ -1,0 +1,107 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    name: Test (PostgreSQL)
+    runs-on: ubuntu-latest
+    container: postgres:17-alpine
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: feedback
+          POSTGRES_PASSWORD: feedback_secret
+          POSTGRES_DB: feedback_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('backend/**/Cargo.lock') }}
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://feedback:feedback_secret@localhost:5432/feedback_dev
+        run: |
+          cd backend
+          cargo install sqlx-cli --no-default-features --features postgres
+          sqlx migrate run
+
+      - name: Run unit tests (ignored)
+        env:
+          DATABASE_URL: postgres://feedback:feedback_secret@localhost:5432/feedback_dev
+        run: |
+          cd backend
+          cargo test -- --ignored
+
+      - name: Run all tests
+        run: |
+          cd backend
+          cargo test
+
+      - name: Run clippy
+        run: |
+          cd backend
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check formatting
+        run: |
+          cd backend
+          cargo fmt -- --check
+
+  fmt-clippy-test:
+    name: _fmt + Clippy + Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Run cargo fmt
+        run: cd backend && cargo fmt -- --check
+
+      - name: Run clippy
+        run: cd backend && cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cd backend && cargo test
