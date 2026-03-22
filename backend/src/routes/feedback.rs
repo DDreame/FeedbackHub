@@ -108,6 +108,22 @@ async fn create_feedback(
     State(state): State<AppState>,
     Json(payload): Json<CreateFeedbackRequest>,
 ) -> Result<(StatusCode, Json<CreateFeedbackResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Verify project exists to prevent orphan feedback rows.
+    let project_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1)",
+    )
+    .bind(payload.project_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+
+    if !project_exists {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: "project not found".into() }),
+        ));
+    }
+
     let id = Uuid::now_v7();
     let now = Utc::now();
 
@@ -319,7 +335,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri(&format!("/api/feedback/{}", created.id))
+                    .uri(format!("/api/feedback/{}", created.id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -387,7 +403,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri(&format!("/api/feedback?project_id={}", project_id))
+                    .uri(format!("/api/feedback?project_id={}", project_id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -413,7 +429,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri(&format!("/api/feedback/{}", fake_id))
+                    .uri(format!("/api/feedback/{}", fake_id))
                     .body(Body::empty())
                     .unwrap(),
             )

@@ -41,7 +41,7 @@ async fn health() -> Json<HealthResponse> {
 #[cfg(test)]
 mod tests {
     use axum::{
-        Json, Router,
+        Router,
         body::Body,
         http::{Request, StatusCode},
         routing::get,
