@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('shows the routed MVP shell on the home screen', () => {
+  it('shows the product landing page on the home screen', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
@@ -21,9 +21,18 @@ describe('App', () => {
     expect(
       screen.getByRole('link', { name: /查看历史/i }),
     ).toHaveAttribute('href', '/history')
+  })
+
+  it('does not show developer console link on the homepage', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    )
+
     expect(
-      screen.getByRole('link', { name: /打开开发者控制台/i }),
-    ).toHaveAttribute('href', '/console')
+      screen.queryByRole('link', { name: /打开开发者控制台/i }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders the feedback submit page', () => {
@@ -41,7 +50,7 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders the console route scaffold', () => {
+  it('renders the console placeholder page', () => {
     render(
       <MemoryRouter initialEntries={['/console']}>
         <App />
@@ -55,7 +64,10 @@ describe('App', () => {
       }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/single-owner review surface for the inbox/i),
+      screen.getByText(/此功能正在开发中/i),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /返回首页/i }),
+    ).toHaveAttribute('href', '/')
   })
 })
