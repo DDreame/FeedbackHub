@@ -104,11 +104,13 @@ interface ReporterIdentity {
 }
 
 function getReporterIdentity(): ReporterIdentity {
-  // TODO: Replace with actual auth integration when available
-  // For now, use a dev placeholder that can be overridden
-  return {
-    id: '00000000-0000-0000-0000-000000000001',
-  };
+  const STORAGE_KEY = 'feedback_reporter_id';
+  let id = localStorage.getItem(STORAGE_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(STORAGE_KEY, id);
+  }
+  return { id };
 }
 
 function buildReporterHeaders(): Record<string, string> {
