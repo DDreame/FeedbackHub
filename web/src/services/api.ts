@@ -207,10 +207,10 @@ export async function createThreadAtomic(
 }
 
 export interface PaginatedThreadsResponse {
-  items: ThreadResponse[];
+  threads: ThreadResponse[];
   total: number;
   page: number;
-  per_page: number;
+  page_size: number;
   total_pages: number;
 }
 
@@ -221,7 +221,7 @@ export interface ThreadFilterParams {
   created_after?: string;
   created_before?: string;
   page?: number;
-  per_page?: number;
+  page_size?: number;
 }
 
 // List user's feedback threads with optional filter/pagination
@@ -236,7 +236,7 @@ export async function listMyThreads(
   if (filters?.created_after) params.set('created_after', filters.created_after);
   if (filters?.created_before) params.set('created_before', filters.created_before);
   if (filters?.page) params.set('page', String(filters.page));
-  if (filters?.per_page) params.set('per_page', String(filters.per_page));
+  if (filters?.page_size) params.set('page_size', String(filters.page_size));
 
   const url = `${API_BASE}/feedback/threads${params.size > 0 ? `?${params.toString()}` : ''}`;
   const response = await fetch(url, {

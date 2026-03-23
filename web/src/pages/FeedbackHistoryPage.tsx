@@ -52,12 +52,12 @@ export function FeedbackHistoryPage() {
         ...(dateFrom && { created_after: dateFrom }),
         ...(dateTo && { created_before: dateTo }),
         page,
-        per_page: 20,
+        page_size: 20,
       };
       const data = await listMyThreads(appKey, filters);
 
       // Check for status changes (show first changed thread's notification)
-      for (const thread of data.items) {
+      for (const thread of data.threads) {
         const key = `feedback_thread_status_${thread.id}`;
         const cached = localStorage.getItem(key);
         if (cached && cached !== thread.status) {
@@ -66,11 +66,11 @@ export function FeedbackHistoryPage() {
         }
       }
       // Update cache
-      for (const thread of data.items) {
+      for (const thread of data.threads) {
         localStorage.setItem(`feedback_thread_status_${thread.id}`, thread.status);
       }
 
-      setThreads(data.items);
+      setThreads(data.threads);
       setTotal(data.total);
       setTotalPages(data.total_pages);
     } catch (err) {
