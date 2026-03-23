@@ -37,6 +37,7 @@ export function FeedbackSubmitPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [expandedAttachment, setExpandedAttachment] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const CATEGORIES: (Category & { label: string })[] = [
@@ -264,7 +265,13 @@ export function FeedbackSubmitPage() {
                   <div className="attachment-previews">
                     {attachments.map((dataUrl, index) => (
                       <div key={index} className="attachment-preview-item">
-                        <img src={dataUrl} alt={t('submit.attachmentAlt', { index: index + 1 })} className="attachment-thumbnail" />
+                        <img
+                          src={dataUrl}
+                          alt={t('submit.attachmentAlt', { index: index + 1 })}
+                          className="attachment-thumbnail"
+                          onClick={() => setExpandedAttachment(index)}
+                          style={{ cursor: 'pointer' }}
+                        />
                         <button
                           type="button"
                           className="attachment-remove"
@@ -374,6 +381,26 @@ export function FeedbackSubmitPage() {
         <Link className="back-link" to="/">
           ← {t('submit.backToHome')}
         </Link>
+
+        {/* Expanded image modal */}
+        {expandedAttachment !== null && attachments[expandedAttachment] && (
+          <div className="modal-overlay" onClick={() => setExpandedAttachment(null)}>
+            <div className="image-preview-modal" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={attachments[expandedAttachment]}
+                alt={t('submit.attachmentAlt', { index: expandedAttachment + 1 })}
+                className="image-preview-full"
+              />
+              <button
+                className="image-preview-close"
+                onClick={() => setExpandedAttachment(null)}
+                aria-label={t('history.close')}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

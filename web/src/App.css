@@ -1386,3 +1386,35 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Image preview modal */
+.image-preview-modal {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.image-preview-full {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -0.75rem;
+  right: -0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid rgba(64, 51, 41, 0.2);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
