@@ -11,6 +11,7 @@ import { ConsoleAnalyticsPage } from './pages/ConsoleAnalyticsPage'
 import { ConsoleApiKeysPage } from './pages/ConsoleApiKeysPage'
 import { ConsoleTemplatesPage } from './pages/ConsoleTemplatesPage'
 import { AppsPage } from './pages/AppsPage'
+import { StatusCheckPage } from './pages/StatusCheckPage'
 import { listApps, type AppResponse } from './services/api'
 import { toggleLanguage, getCurrentLanguage } from './i18n'
 
