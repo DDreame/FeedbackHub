@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -30,12 +30,12 @@ export function FeedbackHistoryPage() {
     { value: 'closed', label: t('history.closed') },
   ];
 
-  const STATUS_MSGS: Record<string, string> = {
+  const STATUS_MSGS: Record<string, string> = useMemo(() => ({
     received: t('notification.receivedSubmitted'),
     in_review: t('notification.reviewStarted'),
     waiting_for_user: t('notification.waitingResponse'),
     closed: t('notification.closed'),
-  };
+  }), [t]);
 
   // Filter state from URL params
   const keyword = searchParams.get('keyword') || '';
