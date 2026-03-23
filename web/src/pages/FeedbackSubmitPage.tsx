@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   createThreadAtomic,
@@ -15,6 +15,7 @@ const CATEGORIES = [
 
 const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_CONTENT_LENGTH = 2000;
 
 type Step = 'category' | 'form' | 'confirmation';
 
@@ -35,7 +36,35 @@ export function FeedbackSubmitPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  const [contactError, setContactError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Unsaved changes guard
+  const hasUnsavedContent = step === 'form' && (content.trim().length > 0 || attachments.length > 0);
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedContent) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedContent]);
+
+  // Keyboard submit: Ctrl/Cmd + Enter
+  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      const form = e.currentTarget.closest('form');
+      if (form) {
+        const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+        if (submitBtn && !submitBtn.disabled) {
+          submitBtn.click();
+        }
+      }
+    }
+  };
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -84,6 +113,17 @@ export function FeedbackSubmitPage() {
     if (!content.trim()) {
       setError('请输入反馈内容');
       return;
+    }
+    if (content.length > MAX_CONTENT_LENGTH) {
+      setError(`反馈内容不能超过 ${MAX_CONTENT_LENGTH} 字`);
+      return;
+    }
+    if (allowContact && contact.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(contact.trim())) {
+        setContactError('请输入有效的邮箱地址');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -182,12 +222,22 @@ export function FeedbackSubmitPage() {
                 id="content"
                 className="form-textarea"
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  setContactError(null);
+                  setError(null);
+                }}
+                onKeyDown={handleContentKeyDown}
                 placeholder="请详细描述您的问题或建议..."
                 rows={6}
                 required
               />
-              <span className="form-hint">请尽量详细描述，这样可以帮助我们更好地解决问题</span>
+              <div className="form-textarea-footer">
+                <span className="form-hint">请尽量详细描述，这样可以帮助我们更好地解决问题 · Ctrl+Enter 快捷提交</span>
+                <span className={`char-count ${content.length > MAX_CONTENT_LENGTH ? 'char-count-over' : ''}`}>
+                  {content.length}/{MAX_CONTENT_LENGTH}
+                </span>
+              </div>
             </div>
 
             <div className="form-group">
@@ -243,13 +293,22 @@ export function FeedbackSubmitPage() {
                 <span>允许开发者联系我</span>
               </label>
               {allowContact && (
-                <input
-                  type="text"
-                  className="form-input"
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                  placeholder="请输入联系方式（邮箱或其他）"
-                />
+                <div className="contact-input-group">
+                  <input
+                    type="text"
+                    className={`form-input ${contactError ? 'form-input-error' : ''}`}
+                    value={contact}
+                    onChange={(e) => {
+                      setContact(e.target.value);
+                      setContactError(null);
+                      setError(null);
+                    }}
+                    placeholder="请输入邮箱地址"
+                  />
+                  {contactError && (
+                    <span className="contact-error">{contactError}</span>
+                  )}
+                </div>
               )}
             </div>
 

@@ -1038,3 +1038,39 @@
 .message-attachment-thumb:hover {
   border-color: var(--accent);
 }
+
+/* Form Polish */
+.form-textarea-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.375rem;
+}
+
+.char-count {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.char-count-over {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.contact-input-group {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.form-input-error {
+  border-color: var(--accent) !important;
+}
+
+.contact-error {
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: rgba(203, 91, 47, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+}
