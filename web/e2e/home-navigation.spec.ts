@@ -8,11 +8,9 @@ test.describe('Home Page Navigation', () => {
     // Title should be visible
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10000 });
 
-    // App cards or empty state should show
-    const hasApps = await page.locator('.app-card').count() > 0;
-    const emptyState = page.locator('.empty-state');
-
-    expect(hasApps || (await emptyState.isVisible())).toBeTruthy();
+    // App cards (surface-card) or feature cards should show
+    const hasApps = await page.locator('.surface-card').count() > 0;
+    expect(hasApps).toBeTruthy();
   });
 
   test('navigates to submit feedback from home', async ({ page }) => {

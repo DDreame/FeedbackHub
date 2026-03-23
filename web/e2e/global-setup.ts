@@ -20,7 +20,7 @@ async function globalSetup() {
   // Seed a default test app if none exists
   try {
     await page.request.post('http://localhost:3000/v1/feedback/apps', {
-      data: { name: 'Test App', description: 'E2E test app' }
+      json: { name: 'Test App', description: 'E2E test app' }
     });
   } catch {
     // App might already exist — ignore errors

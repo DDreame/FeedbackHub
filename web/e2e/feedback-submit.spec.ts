@@ -4,16 +4,18 @@ import { test, expect, type Page } from '@playwright/test';
 async function ensureTestApp(page: Page) {
   await page.goto('/apps');
   await page.waitForLoadState('domcontentloaded');
-  const existingCard = page.locator('.app-card').first();
-  if (await existingCard.isVisible()) return; // App already exists
+  const cardCount = await page.locator('.app-card').count();
+  if (cardCount > 0) return; // App already exists
 
   // Create one
   const createBtn = page.getByRole('button', { name: /create app/i });
   if (await createBtn.isVisible()) {
     await createBtn.click();
+    await page.waitForTimeout(300);
     await page.getByLabel('App Name').fill('E2E Test App');
     await page.getByRole('button', { name: 'Create' }).click();
-    await page.waitForTimeout(500);
+    // Wait for the new app card to appear
+    await page.waitForSelector('.app-card a[href*="/submit/"]', { timeout: 10000 });
   }
 }
 
@@ -74,7 +76,7 @@ test.describe('Feedback Submit Flow', () => {
     await textarea.fill('Test content');
 
     // Click back
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
 
     // Should return to category selection
     await expect(page.getByText('Please select feedback type:')).toBeVisible({ timeout: 5000 });

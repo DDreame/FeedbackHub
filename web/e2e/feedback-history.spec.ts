@@ -8,11 +8,15 @@ test.describe('Feedback History Flow', () => {
     // Page should load
     await expect(page.getByText('My Feedback')).toBeVisible({ timeout: 10000 });
 
+    // Wait for API call to complete
+    await page.waitForLoadState('networkidle');
+
     // Should show either feedback list or empty state
     const emptyState = page.locator('.empty-state');
-    const hasFeedback = await page.locator('.feedback-card').count() > 0;
+    const hasFeedback = await page.locator('.thread-card').count() > 0;
+    const emptyStateVisible = await emptyState.isVisible().catch(() => false);
 
-    expect(hasFeedback || (await emptyState.isVisible())).toBeTruthy();
+    expect(hasFeedback || emptyStateVisible).toBeTruthy();
   });
 
   test('search filters feedback by keyword', async ({ page }) => {
@@ -48,7 +52,10 @@ test.describe('Feedback History Flow', () => {
       await page.waitForTimeout(500);
 
       // Should show filtered results or "no results"
-      await expect(page.getByText(/Received/).or(page.getByText('No matching results'))).toBeVisible({ timeout: 5000 });
+      // Use .thread-list scope to avoid matching the <option> text in the select
+      const hasResults = await page.locator('.thread-list .thread-card').count() > 0;
+      const noResults = page.getByText('No matching results');
+      await expect(hasResults ? page.locator('.thread-list').first() : noResults).toBeVisible({ timeout: 5000 });
     }
   });
 
@@ -57,7 +64,7 @@ test.describe('Feedback History Flow', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Find and click first feedback card if exists
-    const feedbackCard = page.locator('.feedback-card').first();
+    const feedbackCard = page.locator('.thread-card').first();
     if (await feedbackCard.isVisible()) {
       await feedbackCard.click();
 
@@ -80,7 +87,7 @@ test.describe('Feedback History Flow', () => {
       if (await nextBtn.isVisible() && await nextBtn.isEnabled()) {
         await nextBtn.click();
         // Page should update
-        await expect(page.locator('.feedback-card').first()).toBeVisible({ timeout: 3000 });
+        await expect(page.locator('.thread-card').first()).toBeVisible({ timeout: 3000 });
       }
     }
   });

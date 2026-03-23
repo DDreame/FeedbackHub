@@ -64,8 +64,14 @@ test.describe('Dark Mode Toggle', () => {
         const bgColor = await textarea.evaluate((el) =>
           window.getComputedStyle(el).backgroundColor
         );
-        // Dark mode background should be a dark color
-        expect(bgColor).toMatch(/rgb\(\d+,\s*\d+,\s*\d+\)/);
+        // Dark mode background should be a dark color (rgba or rgb format)
+        expect(bgColor).toMatch(/rgba?\(.*?\)/);
+        // Verify it's actually dark (R, G, B values should be low)
+        const match = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (match) {
+          const [, r, g, b] = match.map(Number);
+          expect(r + g + b).toBeLessThan(150); // Dark colors have low RGB sum
+        }
       }
     }
   });
