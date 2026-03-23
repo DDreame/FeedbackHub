@@ -7,7 +7,6 @@ import {
   devAddReply,
   devUpdateStatus,
   devAddInternalNote,
-  devAssign,
   devUnassign,
   devListTags,
   devListThreadTags,
@@ -133,22 +132,6 @@ export function ConsoleThreadPage() {
       setStatusUpdateError(err instanceof Error ? err.message : t('console.thread.statusError'));
     } finally {
       setIsUpdatingStatus(false);
-    }
-  };
-
-  const handleAssign = async (assigneeId: string) => {
-    if (!threadId) return;
-    setShowAssignMenu(false);
-    setIsAssigning(true);
-    setAssignError(null);
-    try {
-      await devAssign(threadId, assigneeId);
-      const updated = await devGetThread(threadId);
-      setThread(updated);
-    } catch (err) {
-      setAssignError(err instanceof Error ? err.message : 'Failed to assign');
-    } finally {
-      setIsAssigning(false);
     }
   };
 
