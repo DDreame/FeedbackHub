@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   listMyThreads,
@@ -7,27 +7,49 @@ import {
 } from '../services/api';
 import { formatRefNumber } from '../utils/formatRefNumber';
 
+const STATUS_MSGS: Record<string, string> = {
+  received: '✅ 感谢提交，您的反馈已收到',
+  in_review: '👀 开发者已查看您的反馈',
+  waiting_for_user: '💬 开发者已回复，等待您的操作',
+  closed: '✅ 此反馈已关闭，如有需要可继续回复',
+};
+
 export function FeedbackHistoryPage() {
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [globalNotification, setGlobalNotification] = useState<{ message: string; status: string } | null>(null);
 
   useEffect(() => {
     fetchThreads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchThreads = async () => {
+  const fetchThreads = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const data = await listMyThreads();
+      // Check for status changes (show first changed thread's notification)
+      for (const thread of data) {
+        const key = `feedback_thread_status_${thread.id}`;
+        const cached = localStorage.getItem(key);
+        if (cached && cached !== thread.status) {
+          setGlobalNotification({ message: STATUS_MSGS[thread.status] || '状态已更新', status: thread.status });
+          break; // only show first changed
+        }
+      }
+      // Update cache
+      for (const thread of data) {
+        localStorage.setItem(`feedback_thread_status_${thread.id}`, thread.status);
+      }
       setThreads(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -67,6 +89,13 @@ export function FeedbackHistoryPage() {
             <button onClick={fetchThreads} className="retry-btn">
               重试
             </button>
+          </div>
+        )}
+
+        {globalNotification && (
+          <div className={`status-notification-banner banner-${globalNotification.status}`} role="alert">
+            <span className="banner-message">{globalNotification.message}</span>
+            <button className="banner-dismiss" onClick={() => setGlobalNotification(null)} aria-label="关闭">✕</button>
           </div>
         )}
 

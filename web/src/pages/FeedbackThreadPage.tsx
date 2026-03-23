@@ -8,6 +8,8 @@ import {
   type ThreadResponse,
   type MessageResponse,
 } from '../services/api';
+import { useStatusNotification } from '../hooks/useStatusNotification';
+import { StatusNotificationBanner } from '../components/StatusNotificationBanner';
 
 export function FeedbackThreadPage() {
   const { threadId } = useParams<{ threadId: string }>();
@@ -18,6 +20,8 @@ export function FeedbackThreadPage() {
   const [replyContent, setReplyContent] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { notification, dismiss } = useStatusNotification(threadId || '', thread?.status || '');
 
   const fetchData = async () => {
     if (!threadId) return;
@@ -104,6 +108,10 @@ export function FeedbackThreadPage() {
               重试
             </button>
           </div>
+        )}
+
+        {notification && (
+          <StatusNotificationBanner message={notification.message} status={notification.status} onDismiss={dismiss} />
         )}
 
         {isLoading ? (
