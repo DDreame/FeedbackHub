@@ -432,6 +432,7 @@ dependencies = [
  "chrono",
  "http-body-util",
  "lettre",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

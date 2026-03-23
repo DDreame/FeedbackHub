@@ -380,16 +380,13 @@ async fn create_thread_anonymous(
 }
 
 fn generate_reference_number() -> String {
-    // Generate human-friendly reference like "FB-XXXXXX"
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    Uuid::now_v7().hash(&mut hasher);
-    let hash = hasher.finish();
+    // Generate human-friendly reference like "FB-XXXXXX" using rand
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let mut rng = rand::thread_rng();
     let suffix: String = (0..6)
-        .map(|i| {
-            let c = b'A' + ((hash >> (i * 5)) % 26) as u8;
-            c as char
+        .map(|_| {
+            let idx = rand::Rng::gen_range(&mut rng, 0..CHARSET.len());
+            CHARSET[idx] as char
         })
         .collect();
     format!("FB-{}", suffix)
