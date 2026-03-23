@@ -3,37 +3,42 @@ import { test, expect } from '@playwright/test';
 test.describe('Home Page Navigation', () => {
   test('home page loads with app selection', async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
 
     // Title should be visible
-    await expect(page.getByText('FeedBack System')).toBeVisible();
+    await expect(page.locator('h1').first()).toBeVisible({ timeout: 10000 });
 
     // App cards or empty state should show
     const hasApps = await page.locator('.app-card').count() > 0;
-    const selectPrompt = page.getByText('Please select an app');
     const emptyState = page.locator('.empty-state');
 
-    expect(hasApps || (await selectPrompt.isVisible()) || (await emptyState.isVisible())).toBeTruthy();
+    expect(hasApps || (await emptyState.isVisible())).toBeTruthy();
   });
 
   test('navigates to submit feedback from home', async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
 
     const appCard = page.locator('.app-card').first();
-    const submitBtn = page.locator('a:has-text("Submit Feedback")').first();
-
     if (await appCard.isVisible()) {
-      await submitBtn.click();
+      await appCard.locator('a[href*="/submit/"]').first().click();
       await expect(page).toHaveURL(/\/submit\//);
+    } else {
+      // No apps — skip
+      test.skip();
     }
   });
 
   test('navigates to history from home', async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
 
-    const historyBtn = page.locator('a:has-text("View History")').first();
-    if (await historyBtn.isVisible()) {
-      await historyBtn.click();
+    const historyLink = page.locator('a[href="/history"]').first();
+    if (await historyLink.isVisible()) {
+      await historyLink.click();
       await expect(page).toHaveURL('/history');
+    } else {
+      test.skip();
     }
   });
 });

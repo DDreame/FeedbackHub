@@ -39,22 +39,22 @@ test.describe('App Management Flow', () => {
 
   test('created app appears in list with success toast', async ({ page }) => {
     await page.goto('/apps');
+    await page.waitForLoadState('domcontentloaded');
 
     const createBtn = page.getByRole('button', { name: /create app/i });
     if (await createBtn.isVisible()) {
       await createBtn.click();
 
       // Fill and submit
-      await page.getByLabel('App Name').fill('E2E Test App ' + Date.now());
+      const appName = 'E2E Test App ' + Date.now();
+      await page.getByLabel('App Name').fill(appName);
       await page.getByRole('button', { name: 'Create' }).click();
 
-      // Success toast should appear
-      await expect(page.getByText('App created successfully')).toBeVisible({ timeout: 3000 }).catch(() => {
-        // Toast may disappear quickly, that's ok
-      });
-
-      // App should appear in list
-      await expect(page.locator('.app-card').first()).toBeVisible();
+      // App should appear in list (toast may disappear quickly)
+      await expect(page.getByText(appName)).toBeVisible({ timeout: 5000 });
+    } else {
+      // No create button visible — skip
+      test.skip();
     }
   });
 

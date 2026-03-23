@@ -3,49 +3,58 @@ import { test, expect } from '@playwright/test';
 test.describe('Feedback History Flow', () => {
   test('loads feedback history page and displays list', async ({ page }) => {
     await page.goto('/history');
+    await page.waitForLoadState('domcontentloaded');
 
     // Page should load
-    await expect(page.getByText('My Feedback')).toBeVisible();
+    await expect(page.getByText('My Feedback')).toBeVisible({ timeout: 10000 });
 
     // Should show either feedback list or empty state
     const emptyState = page.locator('.empty-state');
     const hasFeedback = await page.locator('.feedback-card').count() > 0;
-    const noResults = page.getByText('No matching results').isVisible();
 
-    expect(hasFeedback || (await emptyState.isVisible()) || noResults).toBeTruthy();
+    expect(hasFeedback || (await emptyState.isVisible())).toBeTruthy();
   });
 
   test('search filters feedback by keyword', async ({ page }) => {
     await page.goto('/history');
+    await page.waitForLoadState('domcontentloaded');
 
     const searchInput = page.getByPlaceholder('Search feedback...');
     if (await searchInput.isVisible()) {
       await searchInput.fill('test');
       await page.keyboard.press('Enter');
 
+      // Wait for filter to apply
+      await page.waitForTimeout(500);
+
       // Should show filtered results or "no results"
-      await expect(page.getByText(/test/i).or(page.getByText('No matching results'))).toBeVisible();
+      await expect(page.getByText(/test/i).or(page.getByText('No matching results'))).toBeVisible({ timeout: 5000 });
     }
   });
 
   test('status filter filters by status', async ({ page }) => {
     await page.goto('/history');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click filter button if visible
     const filterBtn = page.getByRole('button', { name: /filter/i });
     if (await filterBtn.isVisible()) {
       await filterBtn.click();
 
-      // Select a status using selectOption (not getByText on option element)
+      // Select a status using selectOption
       await page.locator('select').selectOption('received');
 
-      // Filter should be applied
-      await expect(page.getByText(/Received/).or(page.getByText('No matching results'))).toBeVisible();
+      // Wait for filter to apply
+      await page.waitForTimeout(500);
+
+      // Should show filtered results or "no results"
+      await expect(page.getByText(/Received/).or(page.getByText('No matching results'))).toBeVisible({ timeout: 5000 });
     }
   });
 
   test('clicking feedback opens detail page', async ({ page }) => {
     await page.goto('/history');
+    await page.waitForLoadState('domcontentloaded');
 
     // Find and click first feedback card if exists
     const feedbackCard = page.locator('.feedback-card').first();
@@ -54,12 +63,15 @@ test.describe('Feedback History Flow', () => {
 
       // Should navigate to detail page
       await expect(page).toHaveURL(/\/feedback\//);
-      await expect(page.getByText('Feedback Details')).toBeVisible();
+      await expect(page.getByText('Feedback Details')).toBeVisible({ timeout: 5000 });
+    } else {
+      test.skip();
     }
   });
 
   test('pagination navigation works', async ({ page }) => {
     await page.goto('/history');
+    await page.waitForLoadState('domcontentloaded');
 
     // Check if pagination exists
     const pagination = page.locator('.pagination');

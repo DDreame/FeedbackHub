@@ -55,6 +55,7 @@ test.describe('Dark Mode Toggle', () => {
 
       // Navigate to submit page
       await page.goto('/submit/demo-app');
+      await page.waitForLoadState('domcontentloaded');
       await page.getByText('Encountered a Problem').click();
 
       // Form inputs should have dark background (CSS fix applied)
@@ -63,7 +64,7 @@ test.describe('Dark Mode Toggle', () => {
         const bgColor = await textarea.evaluate((el) =>
           window.getComputedStyle(el).backgroundColor
         );
-        // Dark mode background should be a dark color (rgb with low values)
+        // Dark mode background should be a dark color
         expect(bgColor).toMatch(/rgb\(\d+,\s*\d+,\s*\d+\)/);
       }
     }
