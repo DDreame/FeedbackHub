@@ -353,6 +353,127 @@ async fn dev_get_thread(
     }
 }
 
+/// GET /v1/dev/feedback/export
+/// Export threads as CSV with optional filtering
+async fn dev_export_csv(
+    State(state): State<AppState>,
+    Query(query): Query<InboxQuery>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Validate status value to prevent SQL injection
+    let status_value = query.status.as_ref().and_then(|s| {
+        if ["received", "in_review", "waiting_for_user", "closed", "deleted"]
+            .contains(&s.as_str())
+        {
+            Some(s.clone())
+        } else {
+            None
+        }
+    });
+
+    let rows: Vec<FeedbackThread> = match (&status_value, &query.category, &query.assignee_id) {
+        (None, None, None) => {
+            sqlx::query_as(
+                r#"
+                SELECT id, reporter_id, reporter_contact, category, status, summary,
+                       latest_public_message_at, created_at, updated_at, closed_at,
+                       context_app_version, context_build_number, context_os_name,
+                       context_os_version, context_device_model, context_locale,
+                       context_current_route, context_captured_at, context_reporter_account_id,
+                       assignee_id, is_spam, last_internal_note_at, deleted_at
+                FROM feedback_threads
+                WHERE status != 'deleted'
+                ORDER BY latest_public_message_at DESC
+                LIMIT 10000
+                "#,
+            )
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+        }
+        _ => {
+            let category_pattern = query.category.as_deref().map(|c| format!("%{}%", c));
+            sqlx::query_as(
+                r#"
+                SELECT id, reporter_id, reporter_contact, category, status, summary,
+                       latest_public_message_at, created_at, updated_at, closed_at,
+                       context_app_version, context_build_number, context_os_name,
+                       context_os_version, context_device_model, context_locale,
+                       context_current_route, context_captured_at, context_reporter_account_id,
+                       assignee_id, is_spam, last_internal_note_at, deleted_at
+                FROM feedback_threads
+                WHERE ($1::varchar IS NULL OR status = $1)
+                  AND ($2::varchar IS NULL OR category LIKE $2)
+                  AND ($3::uuid IS NULL OR assignee_id = $3)
+                  AND status != 'deleted'
+                ORDER BY latest_public_message_at DESC
+                LIMIT 10000
+                "#,
+            )
+            .bind(&status_value)
+            .bind(&category_pattern)
+            .bind(query.assignee_id)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+        }
+    };
+
+    // Build CSV
+    let mut csv = String::new();
+    csv.push_str("id,reporter_id,reporter_contact,category,status,summary,created_at,updated_at,closed_at,latest_public_message_at,app_version,build_number,os_name,os_version,device_model,locale,current_route,assignee_id,is_spam\n");
+
+    for t in rows {
+        // Escape quotes in text fields
+        let escape = |s: &str| s.replace('"', "\"\"");
+        let reporter_contact = t.reporter_contact.as_deref().unwrap_or("");
+        let closed_at = t.closed_at.map(|d| d.to_rfc3339()).unwrap_or_default();
+        let assignee = t.assignee_id.map(|u| u.to_string()).unwrap_or_default();
+        let line = format!(
+            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
+            t.id,
+            t.reporter_id,
+            escape(reporter_contact),
+            escape(&t.category),
+            t.status,
+            escape(&t.summary),
+            t.created_at.to_rfc3339(),
+            t.updated_at.to_rfc3339(),
+            closed_at,
+            t.latest_public_message_at.to_rfc3339(),
+            escape(&t.context_app_version),
+            escape(t.context_build_number.as_deref().unwrap_or("")),
+            escape(&t.context_os_name),
+            escape(&t.context_os_version),
+            escape(&t.context_device_model),
+            escape(t.context_locale.as_deref().unwrap_or("")),
+            escape(&t.context_current_route),
+            assignee,
+            t.is_spam,
+        );
+        csv.push_str(&line);
+    }
+
+    Ok((
+        StatusCode::OK,
+        [("Content-Type", "text/csv")],
+        csv,
+    ))
+}
+
 /// POST /v1/dev/feedback/threads/:thread_id/reply
 async fn dev_reply(
     State(state): State<AppState>,
@@ -914,6 +1035,7 @@ pub fn dev_routes(state: AppState) -> Router {
             post(dev_mark_spam),
         )
         .route("/v1/dev/feedback/apps", get(dev_list_apps))
+        .route("/v1/dev/feedback/export", get(dev_export_csv))
         .route("/v1/dev/api-keys", post(create_api_key))
         .with_state(state)
 }
