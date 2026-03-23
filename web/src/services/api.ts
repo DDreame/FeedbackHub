@@ -206,11 +206,39 @@ export async function createThreadAtomic(
   return response.json();
 }
 
-// List user's feedback threads
-export async function listMyThreads(appKey?: string): Promise<ThreadResponse[]> {
-  const url = appKey
-    ? `${API_BASE}/feedback/threads?app_key=${encodeURIComponent(appKey)}`
-    : `${API_BASE}/feedback/threads`;
+export interface PaginatedThreadsResponse {
+  items: ThreadResponse[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface ThreadFilterParams {
+  app_key?: string;
+  keyword?: string;
+  status?: string;
+  created_after?: string;
+  created_before?: string;
+  page?: number;
+  per_page?: number;
+}
+
+// List user's feedback threads with optional filter/pagination
+export async function listMyThreads(
+  appKey?: string,
+  filters?: Omit<ThreadFilterParams, 'app_key'>
+): Promise<PaginatedThreadsResponse> {
+  const params = new URLSearchParams();
+  if (appKey) params.set('app_key', appKey);
+  if (filters?.keyword) params.set('keyword', filters.keyword);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.created_after) params.set('created_after', filters.created_after);
+  if (filters?.created_before) params.set('created_before', filters.created_before);
+  if (filters?.page) params.set('page', String(filters.page));
+  if (filters?.per_page) params.set('per_page', String(filters.per_page));
+
+  const url = `${API_BASE}/feedback/threads${params.size > 0 ? `?${params.toString()}` : ''}`;
   const response = await fetch(url, {
     method: 'GET',
     headers: buildReporterHeaders(),
