@@ -1,12 +1,14 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, Extension},
     http::StatusCode,
+    response::IntoResponse,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -67,6 +69,13 @@ impl Clone for RateLimiter {
             window_secs: self.window_secs,
         }
     }
+}
+
+/// Authenticated developer info extracted from API key by the auth middleware.
+#[derive(Clone)]
+pub struct DevAuthInfo {
+    pub key_hash: String,
+    pub email: String,
 }
 
 /// Shared application state holding the database pool and rate limiter.
@@ -356,9 +365,10 @@ fn sha256_hash(key: &str) -> String {
 
 /// Middleware: validates X-API-Key header against api_keys table.
 /// Returns 401 if key is missing, invalid, or inactive.
+/// On success, injects DevAuthInfo into request extensions.
 pub async fn api_key_auth(
     State(state): axum::extract::State<AppState>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
     // Extract X-API-Key header
@@ -388,22 +398,21 @@ pub async fn api_key_auth(
 
     let key_hash = sha256_hash(key);
 
-    // Validate key exists and is active
-    let is_valid = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM api_keys WHERE key_hash = $1 AND is_active = TRUE)",
+    // Validate key exists and is active, and get the associated email
+    #[derive(Debug, sqlx::FromRow)]
+    struct KeyInfo {
+        email: String,
+    }
+    let key_info: Option<KeyInfo> = sqlx::query_as(
+        "SELECT email FROM api_keys WHERE key_hash = $1 AND is_active = TRUE",
     )
     .bind(&key_hash)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| {
-        eprintln!("API key validation error: {}", e);
-        e
-    })
     .ok()
-    .flatten()
-    .unwrap_or(false);
+    .flatten();
 
-    if !is_valid {
+    let Some(key_info) = key_info else {
         let resp = (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
@@ -411,13 +420,20 @@ pub async fn api_key_auth(
             }),
         );
         return axum::response::IntoResponse::into_response(resp);
-    }
+    };
 
     // Update last_used_at
     let _ = sqlx::query("UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = $1")
         .bind(&key_hash)
         .execute(&state.db)
         .await;
+
+    // Store auth info in extensions for downstream handlers
+    let auth_info = DevAuthInfo {
+        key_hash,
+        email: key_info.email,
+    };
+    request.extensions_mut().insert(Arc::new(auth_info));
 
     next.run(request).await
 }
@@ -485,6 +501,98 @@ pub async fn create_api_key(
             created_at: now,
         }),
     ))
+}
+
+/// GET /v1/dev/api-keys
+/// List all API keys for the authenticated developer.
+/// The key_hash is not returned for security reasons.
+pub async fn list_api_keys(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    #[derive(Debug, sqlx::FromRow, Serialize)]
+    pub struct ApiKeyRow {
+        pub id: Uuid,
+        pub email: String,
+        pub name: String,
+        pub created_at: chrono::DateTime<chrono::Utc>,
+        pub last_used_at: Option<chrono::DateTime<chrono::Utc>>,
+        pub is_active: bool,
+    }
+
+    let rows: Vec<ApiKeyRow> = sqlx::query_as(
+        r#"SELECT id, email, name, created_at, last_used_at, is_active
+           FROM api_keys WHERE email = $1 ORDER BY created_at DESC"#,
+    )
+    .bind(&auth.email)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    Ok(Json(rows))
+}
+
+/// DELETE /v1/dev/api-keys/{key_id}
+/// Revoke an API key. The key must belong to the authenticated developer.
+pub async fn revoke_api_key(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path(key_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify the key exists and belongs to this developer
+    let owner_email: Option<String> = sqlx::query_scalar(
+        "SELECT email FROM api_keys WHERE id = $1",
+    )
+    .bind(key_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let owner_email = owner_email.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "API key not found".to_string(),
+        }),
+    ))?;
+
+    if owner_email != auth.email {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You do not have permission to revoke this API key".to_string(),
+            }),
+        ));
+    }
+
+    // Soft-delete by setting is_active = FALSE
+    sqlx::query("UPDATE api_keys SET is_active = FALSE WHERE id = $1")
+        .bind(key_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({ "status": "revoked", "id": key_id })))
 }
 
 #[cfg(test)]

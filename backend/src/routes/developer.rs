@@ -19,7 +19,7 @@ use crate::model::thread::{
     MarkSpamRequest, MessageResponse, ThreadStatus, UpdateStatusRequest,
 };
 
-use super::feedback::{AppState, create_api_key};
+use super::feedback::{AppState, create_api_key, list_api_keys, revoke_api_key};
 
 // ---------------------------------------------------------------------------
 // Query types
@@ -1339,5 +1339,7 @@ pub fn dev_routes(state: AppState) -> Router {
         .route("/v1/dev/feedback/apps", get(dev_list_apps))
         .route("/v1/dev/feedback/export", get(dev_export_csv))
         .route("/v1/dev/api-keys", post(create_api_key))
+        .route("/v1/dev/api-keys", get(list_api_keys))
+        .route("/v1/dev/api-keys/{key_id}", delete(revoke_api_key))
         .with_state(state)
 }
