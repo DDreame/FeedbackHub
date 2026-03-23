@@ -39,7 +39,7 @@ pub struct WebhookPayload {
 pub enum WebhookData {
     FeedbackCreated {
         thread_id: Uuid,
-        app_id: Uuid,
+        app_id: Option<Uuid>,
         reporter_id: Uuid,
         category: String,
         summary: String,
@@ -47,13 +47,13 @@ pub enum WebhookData {
     },
     FeedbackStatusChanged {
         thread_id: Uuid,
-        app_id: Uuid,
+        app_id: Option<Uuid>,
         old_status: String,
         new_status: String,
     },
     FeedbackReplied {
         thread_id: Uuid,
-        app_id: Uuid,
+        app_id: Option<Uuid>,
         message_id: Uuid,
         author_type: String,
     },
@@ -67,9 +67,12 @@ pub struct WebhookConfig {
 /// Fetch active webhooks for an app that subscribe to a given event
 pub async fn get_active_webhooks(
     pool: &PgPool,
-    app_id: Uuid,
+    app_id: Option<Uuid>,
     event: &WebhookEvent,
 ) -> Result<Vec<WebhookConfig>, sqlx::Error> {
+    let Some(app_id) = app_id else {
+        return Ok(Vec::new());
+    };
     let rows: Vec<(String, Option<String>)> = sqlx::query_as(
         r#"
         SELECT url, secret FROM webhooks
@@ -130,7 +133,7 @@ pub fn deliver_webhook(url: String, payload: WebhookPayload, secret: Option<Stri
 pub async fn trigger_feedback_created(
     pool: &PgPool,
     thread_id: Uuid,
-    app_id: Uuid,
+    app_id: Option<Uuid>,
     reporter_id: Uuid,
     category: String,
     summary: String,
@@ -159,7 +162,7 @@ pub async fn trigger_feedback_created(
 pub async fn trigger_status_changed(
     pool: &PgPool,
     thread_id: Uuid,
-    app_id: Uuid,
+    app_id: Option<Uuid>,
     old_status: String,
     new_status: String,
 ) {
@@ -185,7 +188,7 @@ pub async fn trigger_status_changed(
 pub async fn trigger_feedback_replied(
     pool: &PgPool,
     thread_id: Uuid,
-    app_id: Uuid,
+    app_id: Option<Uuid>,
     message_id: Uuid,
     author_type: String,
 ) {

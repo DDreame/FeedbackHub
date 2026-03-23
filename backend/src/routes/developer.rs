@@ -406,9 +406,9 @@ async fn dev_reply(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
 
-    // Get reporter_id and summary for notification
-    let thread_info: Option<(Uuid, String)> =
-        sqlx::query_as("SELECT reporter_id, summary FROM feedback_threads WHERE id = $1")
+    // Get reporter_id, summary, and app_id for notification
+    let thread_info: Option<(Uuid, String, Option<Uuid>)> =
+        sqlx::query_as("SELECT reporter_id, summary, app_id FROM feedback_threads WHERE id = $1")
             .bind(thread_id)
             .fetch_optional(&state.db)
             .await
@@ -426,10 +426,12 @@ async fn dev_reply(
     };
 
     // Send email notification asynchronously (non-blocking)
-    if let Some((reporter_id, summary)) = thread_info {
+    if let Some((reporter_id, summary, app_id)) = thread_info {
         let db = state.db.clone();
         tokio::spawn(async move {
             maybe_send_notification(&db, reporter_id, &summary, NotificationType::Reply).await;
+            // Trigger webhook for reply
+            crate::webhook::trigger_feedback_replied(&db, thread_id, app_id, id, "developer".to_string()).await;
         });
     }
 
@@ -535,16 +537,27 @@ async fn dev_update_status(
             // Send email notification asynchronously (non-blocking)
             let db = state.db.clone();
             let new_status_str = payload.status.as_str().to_string();
+            let old_status_str = current_status.clone();
             let reporter_id = thread.reporter_id;
             let summary = thread.summary.clone();
+            let app_id = thread.app_id;
             tokio::spawn(async move {
                 maybe_send_notification(
                     &db,
                     reporter_id,
                     &summary,
                     NotificationType::StatusChange {
-                        new_status: new_status_str,
+                        new_status: new_status_str.clone(),
                     },
+                )
+                .await;
+                // Trigger webhook for status change
+                crate::webhook::trigger_status_changed(
+                    &db,
+                    thread_id,
+                    app_id,
+                    old_status_str,
+                    new_status_str,
                 )
                 .await;
             });

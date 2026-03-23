@@ -139,6 +139,16 @@ async fn create_thread(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
 
+    // Trigger webhook (non-blocking)
+    let _ = crate::webhook::trigger_feedback_created(
+        &state.db,
+        id,
+        None, // app_id not yet set on thread
+        reporter_id,
+        payload.category.clone(),
+        payload.summary.clone(),
+    );
+
     Ok((StatusCode::CREATED, Json(CreateThreadResponse { id })))
 }
 
