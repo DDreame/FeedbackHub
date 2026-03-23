@@ -59,7 +59,7 @@ async fn create_app(
     Json(payload): Json<CreateAppRequest>,
 ) -> Result<(StatusCode, Json<CreateAppResponse>), (StatusCode, Json<ErrorResponse>)> {
     let id = Uuid::now_v7();
-    let app_key = format!("app_{}", &Uuid::now_v7().to_string().replace("-", "")[..8]);
+    let app_key = format!("app_{}", Uuid::now_v7().to_string().replace("-", ""));
     let now = chrono::Utc::now();
     let description = payload.description.unwrap_or_default();
 
