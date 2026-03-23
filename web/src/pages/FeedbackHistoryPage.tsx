@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   listMyThreads,
   STATUS_LABELS,
@@ -15,6 +15,7 @@ const STATUS_MSGS: Record<string, string> = {
 };
 
 export function FeedbackHistoryPage() {
+  const { appKey } = useParams<{ appKey?: string }>();
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export function FeedbackHistoryPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await listMyThreads();
+      const data = await listMyThreads(appKey);
       // Check for status changes (show first changed thread's notification)
       for (const thread of data) {
         const key = `feedback_thread_status_${thread.id}`;
@@ -49,7 +50,7 @@ export function FeedbackHistoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [appKey]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -104,7 +105,7 @@ export function FeedbackHistoryPage() {
         ) : threads.length === 0 ? (
           <div className="empty-state">
             <p>您还没有提交过反馈</p>
-            <Link to="/submit/demo-app" className="btn-primary">
+            <Link to={appKey ? `/submit/${appKey}` : '/submit/demo-app'} className="btn-primary">
               提交反馈
             </Link>
           </div>

@@ -1,20 +1,36 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 import App from './App'
 
 describe('App', () => {
-  it('shows the product landing page on the home screen', () => {
+  beforeEach(() => {
+    // Mock fetch globally for all tests
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response)
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows the product landing page on the home screen', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     )
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: /feedBack system/i }),
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 1, name: /feedBack system/i }),
+      ).toBeInTheDocument()
+    });
     expect(
       screen.getByRole('link', { name: /打开反馈入口/i }),
     ).toHaveAttribute('href', '/submit/demo-app')

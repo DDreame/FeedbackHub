@@ -207,8 +207,11 @@ export async function createThreadAtomic(
 }
 
 // List user's feedback threads
-export async function listMyThreads(): Promise<ThreadResponse[]> {
-  const response = await fetch(`${API_BASE}/feedback/threads`, {
+export async function listMyThreads(appKey?: string): Promise<ThreadResponse[]> {
+  const url = appKey
+    ? `${API_BASE}/feedback/threads?app_key=${encodeURIComponent(appKey)}`
+    : `${API_BASE}/feedback/threads`;
+  const response = await fetch(url, {
     method: 'GET',
     headers: buildReporterHeaders(),
   });
@@ -216,6 +219,29 @@ export async function listMyThreads(): Promise<ThreadResponse[]> {
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || 'Failed to fetch threads');
+  }
+
+  return response.json();
+}
+
+export interface AppResponse {
+  id: string;
+  name: string;
+  app_key: string;
+  description: string;
+  created_at: string;
+}
+
+// List user's apps
+export async function listApps(): Promise<AppResponse[]> {
+  const response = await fetch(`${API_BASE}/feedback/apps`, {
+    method: 'GET',
+    headers: buildReporterHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch apps');
   }
 
   return response.json();

@@ -1,11 +1,83 @@
-import { Link, Route, Routes } from 'react-router-dom'
+import { useEffect, useState } from 'react';
+import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
+import { listApps, type AppResponse } from './services/api'
 
 import './App.css'
 
 function HomePage() {
+  const navigate = useNavigate();
+  const [apps, setApps] = useState<AppResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listApps()
+      .then((appList) => {
+        setApps(appList);
+        setLoading(false);
+        // If only one app, redirect directly to submit page
+        if (appList.length === 1) {
+          navigate(`/submit/${appList[0].app_key}`);
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : '加载失败');
+        setLoading(false);
+      });
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <main className="shell">
+        <div className="loading">加载中...</div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="shell">
+        <div className="error-message">{error}</div>
+      </main>
+    );
+  }
+
+  // Multiple apps — show app selector
+  if (apps.length > 1) {
+    return (
+      <main className="shell">
+        <section className="hero">
+          <h1>FeedBack System</h1>
+          <p className="lead">请选择要提交反馈的应用</p>
+        </section>
+        <section className="surface-grid" aria-label="选择应用">
+          {apps.map((app) => (
+            <article key={app.id} className="surface-card">
+              <h2>{app.name}</h2>
+              {app.description && <p>{app.description}</p>}
+              <Link className="route-link" to={`/submit/${app.app_key}`}>
+                打开反馈入口
+              </Link>
+            </article>
+          ))}
+        </section>
+        <section className="surface-grid" aria-label="功能入口">
+          <article className="surface-card">
+            <h2>我的反馈</h2>
+            <p>查看我的反馈历史和处理进度。</p>
+            <Link className="route-link" to="/history">
+              查看历史
+            </Link>
+          </article>
+        </section>
+      </main>
+    );
+  }
+
+  // Fallback: no apps or single app redirect handled above
   return (
     <main className="shell">
       <section className="hero">
@@ -33,7 +105,7 @@ function HomePage() {
         </article>
       </section>
     </main>
-  )
+  );
 }
 
 function ConsolePlaceholderPage() {
@@ -58,6 +130,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
       <Route path="/history" element={<FeedbackHistoryPage />} />
+      <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
       <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
       <Route path="/console" element={<ConsolePlaceholderPage />} />
     </Routes>
