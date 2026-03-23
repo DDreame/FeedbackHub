@@ -31,7 +31,7 @@ function LanguageToggle() {
   const [lang, setLang] = useState(getCurrentLanguage);
   return (
     <button
-      className="theme-toggle"
+      className="language-toggle"
       onClick={() => { toggleLanguage(); setLang(getCurrentLanguage()); }}
       title={lang === 'zh-CN' ? 'English' : '中文'}
     >

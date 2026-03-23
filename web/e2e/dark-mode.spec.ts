@@ -4,7 +4,7 @@ test.describe('Dark Mode Toggle', () => {
   test('theme toggle switches between light and dark', async ({ page }) => {
     await page.goto('/');
 
-    const themeToggle = page.locator('.theme-toggle');
+    const themeToggle = page.locator('.theme-toggle').first();
     if (await themeToggle.isVisible()) {
       // Get initial theme
       const initialDark = await page.evaluate(() =>
@@ -25,7 +25,7 @@ test.describe('Dark Mode Toggle', () => {
   test('dark mode persists after page refresh', async ({ page }) => {
     await page.goto('/');
 
-    const themeToggle = page.locator('.theme-toggle');
+    const themeToggle = page.locator('.theme-toggle').first();
     if (await themeToggle.isVisible()) {
       // Switch to dark mode
       await themeToggle.click();
@@ -48,7 +48,7 @@ test.describe('Dark Mode Toggle', () => {
   test('dark mode form inputs have proper contrast', async ({ page }) => {
     await page.goto('/');
 
-    const themeToggle = page.locator('.theme-toggle');
+    const themeToggle = page.locator('.theme-toggle').first();
     if (await themeToggle.isVisible()) {
       // Switch to dark mode
       await themeToggle.click();
