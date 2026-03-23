@@ -18,9 +18,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3010',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: 'cargo run',
+      url: 'http://localhost:3000',
+      cwd: '../backend',
+      env: {
+        DATABASE_URL: 'postgres://feedback:feedback_secret@localhost:5432/feedback_dev',
+        RUST_LOG: 'info',
+      },
+      timeout: 120000,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3010',
+      timeout: 120000,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });
