@@ -1,8 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+// Helper: ensure at least one app exists for testing
+async function ensureTestApp(page: Page) {
+  await page.goto('/apps');
+  await page.waitForLoadState('domcontentloaded');
+  const existingCard = page.locator('.app-card').first();
+  if (await existingCard.isVisible()) return; // App already exists
+
+  // Create one
+  const createBtn = page.getByRole('button', { name: /create app/i });
+  if (await createBtn.isVisible()) {
+    await createBtn.click();
+    await page.getByLabel('App Name').fill('E2E Test App');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.waitForTimeout(500);
+  }
+}
 
 test.describe('Feedback Submit Flow', () => {
   test('complete feedback submission with category selection, form fill, and confirmation', async ({ page }) => {
-    await page.goto('/submit/demo-app');
+    // Ensure test app exists
+    await ensureTestApp(page);
+
+    // Get app key from the apps page
+    const appLink = page.locator('.app-card a[href*="/submit/"]').first();
+    const appHref = await appLink.getAttribute('href');
+    const appKey = appHref?.split('/submit/')[1] || 'demo-app';
+
+    await page.goto(`/submit/${appKey}`);
     await page.waitForLoadState('domcontentloaded');
 
     // Step 1: Category selection

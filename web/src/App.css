@@ -1095,9 +1095,9 @@
 
 [data-theme="dark"] .form-input,
 [data-theme="dark"] .form-textarea {
-  background: var(--surface);
+  background: rgba(15, 20, 25, 0.95);
   color: var(--ink-strong);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Form Polish */
