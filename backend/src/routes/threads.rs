@@ -93,6 +93,16 @@ async fn create_thread(
         reporter_account_id: payload.context.reporter_account_id,
     };
 
+    // Ensure reporters record exists first (FK constraint on feedback_threads.reporter_id)
+    sqlx::query(
+        r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING"#,
+    )
+    .bind(reporter_id)
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+
     sqlx::query(
         r#"
         INSERT INTO feedback_threads (
@@ -232,6 +242,22 @@ async fn create_thread_atomic(
 
     // Create notification preferences if email provided (all three notify flags set to true)
     if let Some(ref email) = payload.notification_email {
+        // Ensure reporters record exists first (upsert)
+        sqlx::query(
+            r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2)
+               ON CONFLICT (id) DO NOTHING"#,
+        )
+        .bind(reporter_id)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e.to_string() }),
+            )
+        })?;
+
         let pref_id = Uuid::now_v7();
         sqlx::query(
             r#"INSERT INTO notification_preferences (id, reporter_id, email, notify_on_reply, notify_on_status_change, notify_on_close, created_at, updated_at)
@@ -945,16 +971,59 @@ pub fn thread_routes(state: AppState) -> Router {
 mod tests {
     use super::*;
     use crate::db::test_pool;
+    use crate::routes::developer::dev_routes;
+    use crate::routes::feedback::{AppState, RateLimiter, api_key_auth};
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
+    use axum::middleware;
     use http_body_util::BodyExt;
+    use std::fmt::Write;
     use tower::util::ServiceExt;
 
     fn app_with_pool(pool: sqlx::PgPool) -> Router {
-        thread_routes(AppState {
+        let state = AppState {
             db: pool,
             rate_limiter: RateLimiter::new(1000, 60),
-        })
+        };
+        thread_routes(state.clone())
+    }
+
+    /// Creates a full app router including dev routes with auth middleware.
+    fn app_with_pool_and_dev(pool: sqlx::PgPool) -> Router {
+        let state = AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(1000, 60),
+        };
+        let dev_api = dev_routes(state.clone())
+            .layer(middleware::from_fn_with_state(state.clone(), api_key_auth));
+        thread_routes(state.clone()).merge(dev_api)
+    }
+
+    /// Seeds a test API key and returns the plaintext key for use in test requests.
+    async fn seed_api_key(pool: &sqlx::PgPool) -> String {
+        use sha2::Digest;
+        let raw_key = Uuid::now_v7().to_string() + &Uuid::now_v7().to_string()[..8];
+        let key_hash = {
+            let result = sha2::Sha256::digest(raw_key.as_bytes());
+            let mut hex = String::with_capacity(64);
+            for b in result {
+                write!(&mut hex, "{:02x}", b).unwrap();
+            }
+            hex
+        };
+        let id = Uuid::now_v7();
+        let now = chrono::Utc::now();
+        sqlx::query(
+            r#"INSERT INTO api_keys (id, key_hash, email, name, created_at, is_active)
+               VALUES ($1, $2, 'test@test.com', 'test', $3, TRUE)"#,
+        )
+        .bind(id)
+        .bind(&key_hash)
+        .bind(now)
+        .execute(pool)
+        .await
+        .expect("seed api_key");
+        raw_key
     }
 
     fn is_database_available() -> bool {
@@ -969,6 +1038,15 @@ mod tests {
         status: &str,
     ) -> Result<(), sqlx::Error> {
         let now = chrono::Utc::now();
+        // Ensure reporters record exists first (FK constraint on feedback_threads.reporter_id)
+        sqlx::query(
+            r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING"#,
+        )
+        .bind(reporter_id)
+        .bind(now)
+        .execute(pool)
+        .await?;
+
         sqlx::query(
             r#"
             INSERT INTO feedback_threads (
@@ -1247,6 +1325,16 @@ mod tests {
         let now = chrono::Utc::now();
 
         // Seed a CLOSED thread
+        // Ensure reporters record exists first (FK constraint)
+        sqlx::query(
+            r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING"#,
+        )
+        .bind(reporter_id)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .expect("seed reporter");
+
         sqlx::query(
             r#"
             INSERT INTO feedback_threads (
@@ -1315,7 +1403,8 @@ mod tests {
             return;
         }
         let pool = test_pool().await.expect("test pool");
-        let app = app_with_pool(pool.clone());
+        let app = app_with_pool_and_dev(pool.clone());
+        let api_key = seed_api_key(&pool).await;
 
         let thread_id = Uuid::now_v7();
         let reporter_id = Uuid::now_v7();
@@ -1328,6 +1417,7 @@ mod tests {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/dev/feedback/threads")
+                    .header("x-api-key", &api_key)
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1337,7 +1427,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
         let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-        let threads = json.as_array().expect("response should be array");
+        let threads = json
+            .get("threads")
+            .and_then(|v| v.as_array())
+            .expect("response should have threads array");
         assert!(
             threads.iter().any(|t| t
                 .get("id")
@@ -1361,7 +1454,8 @@ mod tests {
             return;
         }
         let pool = test_pool().await.expect("test pool");
-        let app = app_with_pool(pool.clone());
+        let app = app_with_pool_and_dev(pool.clone());
+        let api_key = seed_api_key(&pool).await;
 
         let thread_id = Uuid::now_v7();
         let reporter_id = Uuid::now_v7();
@@ -1379,6 +1473,7 @@ mod tests {
                     .method("POST")
                     .uri(format!("/v1/dev/feedback/threads/{}/status", thread_id))
                     .header("Content-Type", "application/json")
+                    .header("x-api-key", &api_key)
                     .body(Body::from(body.to_string()))
                     .unwrap(),
             )
@@ -1396,6 +1491,7 @@ mod tests {
                     .method("POST")
                     .uri(format!("/v1/dev/feedback/threads/{}/status", thread_id))
                     .header("Content-Type", "application/json")
+                    .header("x-api-key", &api_key)
                     .body(Body::from(body.to_string()))
                     .unwrap(),
             )
@@ -1562,7 +1658,8 @@ mod tests {
             return;
         }
         let pool = test_pool().await.expect("test pool");
-        let app = app_with_pool(pool.clone());
+        let app = app_with_pool_and_dev(pool.clone());
+        let api_key = seed_api_key(&pool).await;
 
         let thread_id = Uuid::now_v7();
         let reporter_id = Uuid::now_v7();
@@ -1576,6 +1673,7 @@ mod tests {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/dev/feedback/threads?status=in_review")
+                    .header("x-api-key", &api_key)
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1585,7 +1683,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
         let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-        let threads = json.as_array().expect("response should be array");
+        let threads = json
+            .get("threads")
+            .and_then(|v| v.as_array())
+            .expect("response should have threads array");
         assert!(
             threads
                 .iter()
@@ -1608,7 +1709,8 @@ mod tests {
             return;
         }
         let pool = test_pool().await.expect("test pool");
-        let app = app_with_pool(pool.clone());
+        let app = app_with_pool_and_dev(pool.clone());
+        let api_key = seed_api_key(&pool).await;
 
         let thread_id = Uuid::now_v7();
         let reporter_id = Uuid::now_v7();
@@ -1622,6 +1724,7 @@ mod tests {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/dev/feedback/threads?status=invalid_status")
+                    .header("x-api-key", &api_key)
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1631,7 +1734,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
         let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-        let threads = json.as_array().expect("response should be array");
+        let threads = json
+            .get("threads")
+            .and_then(|v| v.as_array())
+            .expect("response should have threads array");
         // Invalid status should be ignored - thread should still appear
         assert!(
             threads
@@ -1655,7 +1761,8 @@ mod tests {
             return;
         }
         let pool = test_pool().await.expect("test pool");
-        let app = app_with_pool(pool.clone());
+        let app = app_with_pool_and_dev(pool.clone());
+        let api_key = seed_api_key(&pool).await;
 
         let thread_id = Uuid::now_v7();
         let reporter_id = Uuid::now_v7();
@@ -1694,6 +1801,7 @@ mod tests {
                     .method("POST")
                     .uri(format!("/v1/dev/feedback/threads/{}/reply", thread_id))
                     .header("Content-Type", "application/json")
+                    .header("x-api-key", &api_key)
                     .body(Body::from(reply_body.to_string()))
                     .unwrap(),
             )

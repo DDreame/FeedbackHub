@@ -1,3 +1,9 @@
+-- Reporters: canonical reporter identity, referenced by feedback_threads and notification_preferences
+CREATE TABLE reporters (
+    id          UUID        NOT NULL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Notification preferences: per-reporter email notification settings
 CREATE TABLE notification_preferences (
     id                      UUID        NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -9,7 +15,7 @@ CREATE TABLE notification_preferences (
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_notification_preferences_reporter
-        FOREIGN KEY (reporter_id) REFERENCES feedback_threads(reporter_id)
+        FOREIGN KEY (reporter_id) REFERENCES reporters(id)
         ON DELETE CASCADE
 );
 CREATE INDEX idx_notification_preferences_reporter ON notification_preferences(reporter_id);
