@@ -1093,6 +1093,13 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-textarea {
+  background: var(--surface);
+  color: var(--ink-strong);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
 /* Form Polish */
 .form-textarea-footer {
   display: flex;
