@@ -140,6 +140,7 @@ pub struct FeedbackMessage {
     pub thread_id: Uuid,
     pub author_type: String,
     pub body: String,
+    pub attachments: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub is_internal: bool,
 }
@@ -165,6 +166,8 @@ pub struct CreateThreadAtomicRequest {
     pub thread: CreateThreadRequest,
     /// Initial message body. If provided, creates thread AND first message in one transaction.
     pub initial_message: Option<String>,
+    /// Base64 data URLs of attached images.
+    pub attachments: Option<Vec<String>>,
 }
 
 /// Response for atomic create-thread-with-message operation.
@@ -191,6 +194,8 @@ pub struct ContextSnapshotInput {
 pub struct AddMessageRequest {
     pub author_type: AuthorType,
     pub body: String,
+    /// Base64 data URLs of attached images.
+    pub attachments: Option<Vec<String>>,
 }
 
 /// Input for updating thread status (developer-side).
@@ -203,6 +208,8 @@ pub struct UpdateStatusRequest {
 #[derive(Debug, Deserialize)]
 pub struct InternalNoteRequest {
     pub body: String,
+    /// Base64 data URLs of attached images.
+    pub attachments: Option<Vec<String>>,
 }
 
 /// Input for unassigning a thread (clears assignee_id).
@@ -300,6 +307,7 @@ pub struct MessageResponse {
     pub thread_id: Uuid,
     pub author_type: String,
     pub body: String,
+    pub attachments: Vec<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -310,6 +318,7 @@ impl From<FeedbackMessage> for MessageResponse {
             thread_id: m.thread_id,
             author_type: m.author_type,
             body: m.body,
+            attachments: m.attachments,
             created_at: m.created_at,
         }
     }

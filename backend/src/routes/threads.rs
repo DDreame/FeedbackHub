@@ -211,11 +211,12 @@ async fn create_thread_atomic(
     let message_id = if let Some(body) = &payload.initial_message {
         let msg_id = Uuid::now_v7();
         sqlx::query(
-            r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'reporter', $3, $4, FALSE)"#,
+            r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, attachments, created_at, is_internal) VALUES ($1, $2, 'reporter', $3, $4, $5, FALSE)"#,
         )
         .bind(msg_id)
         .bind(thread_id)
         .bind(body)
+        .bind(payload.attachments.clone().unwrap_or_default())
         .bind(now)
         .execute(&mut *tx)
         .await
@@ -416,12 +417,13 @@ async fn add_message(
     let now = Utc::now();
 
     sqlx::query(
-        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, $3, $4, $5, FALSE)"#,
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, attachments, created_at, is_internal) VALUES ($1, $2, $3, $4, $5, $6, FALSE)"#,
     )
     .bind(id)
     .bind(thread_id)
     .bind("reporter") // Force author_type to reporter for reporter-side endpoint
     .bind(&payload.body)
+    .bind(payload.attachments.clone().unwrap_or_default())
     .bind(now)
     .execute(&state.db)
     .await
@@ -450,6 +452,7 @@ async fn add_message(
         thread_id,
         author_type: "reporter".to_string(),
         body: payload.body,
+        attachments: payload.attachments.unwrap_or_default(),
         created_at: now,
         is_internal: false,
     };
@@ -509,7 +512,7 @@ async fn list_my_messages(
     }
 
     let rows: Vec<FeedbackMessage> = sqlx::query_as(
-        r#"SELECT id, thread_id, author_type, body, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 AND is_internal = FALSE ORDER BY created_at ASC"#,
+        r#"SELECT id, thread_id, author_type, body, attachments, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 AND is_internal = FALSE ORDER BY created_at ASC"#,
     )
     .bind(thread_id)
     .fetch_all(&state.db)
@@ -722,11 +725,12 @@ async fn dev_reply(
     let now = Utc::now();
 
     sqlx::query(
-        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, FALSE)"#,
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, attachments, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, $5, FALSE)"#,
     )
     .bind(id)
     .bind(thread_id)
     .bind(&payload.body)
+    .bind(payload.attachments.clone().unwrap_or_default())
     .bind(now)
     .execute(&state.db)
     .await
@@ -746,6 +750,7 @@ async fn dev_reply(
         thread_id,
         author_type: "developer".to_string(),
         body: payload.body,
+        attachments: payload.attachments.unwrap_or_default(),
         created_at: now,
         is_internal: false,
     };
@@ -1023,11 +1028,12 @@ async fn dev_add_internal_note(
     let now = Utc::now();
 
     sqlx::query(
-        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, TRUE)"#,
+        r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, attachments, created_at, is_internal) VALUES ($1, $2, 'developer', $3, $4, $5, TRUE)"#,
     )
     .bind(id)
     .bind(thread_id)
     .bind(&payload.body)
+    .bind(payload.attachments.clone().unwrap_or_default())
     .bind(now)
     .execute(&state.db)
     .await
@@ -1055,6 +1061,7 @@ async fn dev_add_internal_note(
         thread_id,
         author_type: "developer".to_string(),
         body: payload.body,
+        attachments: payload.attachments.unwrap_or_default(),
         created_at: now,
         is_internal: true,
     };
@@ -1069,7 +1076,7 @@ async fn dev_list_messages(
     Path(thread_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let rows: Vec<FeedbackMessage> = sqlx::query_as(
-        r#"SELECT id, thread_id, author_type, body, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 ORDER BY created_at ASC"#,
+        r#"SELECT id, thread_id, author_type, body, attachments, created_at, is_internal FROM feedback_messages WHERE thread_id = $1 ORDER BY created_at ASC"#,
     )
     .bind(thread_id)
     .fetch_all(&state.db)
