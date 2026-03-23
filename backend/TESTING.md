@@ -21,7 +21,7 @@ cargo test
 ```bash
 # Start PostgreSQL
 cd ..
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Wait for PostgreSQL to be ready, then run migrations
 cd backend
@@ -95,5 +95,5 @@ The `docker-compose.yml` in the project root provides:
 - `redis:7-alpine` on port 6379 (for future use)
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```

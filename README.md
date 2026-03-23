@@ -20,3 +20,8 @@ cd backend && cargo test
 cd web && npm test
 cd web && npm run build
 ```
+
+## Local Preview
+
+For a local end-to-end preview of the current MVP, use the repo-side wiring in
+`docs/local-preview.md`.
