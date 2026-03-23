@@ -33,12 +33,7 @@ export interface CreateThreadAtomicRequest {
   context: ContextSnapshotInput;
   initial_message?: string;
   attachments?: string[];
-  notification_preferences?: {
-    email: string;
-    notify_on_reply: boolean;
-    notify_on_status_change: boolean;
-    notify_on_close: boolean;
-  };
+  notification_email?: string;
 }
 
 export interface CreateThreadAtomicResponse {
@@ -204,14 +199,6 @@ export async function createThreadAtomic(
   notificationEmail?: string
 ): Promise<CreateThreadAtomicResponse> {
   const identity = getReporterIdentity();
-  const notificationPrefs = notificationEmail
-    ? {
-        email: notificationEmail,
-        notify_on_reply: true,
-        notify_on_status_change: true,
-        notify_on_close: true,
-      }
-    : undefined;
 
   const response = await fetch(`${API_BASE}/feedback/threads/atomic`, {
     method: 'POST',
@@ -226,7 +213,7 @@ export async function createThreadAtomic(
       summary,
       initial_message: initialMessage,
       attachments: attachments || [],
-      notification_preferences: notificationPrefs,
+      notification_email: notificationEmail,
       context: {
         app_version: context?.app_version || '1.0.0',
         build_number: context?.build_number,

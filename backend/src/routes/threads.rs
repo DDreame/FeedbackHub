@@ -230,25 +230,19 @@ async fn create_thread_atomic(
         None
     };
 
-    // Create notification preferences if provided
-    if let Some(ref prefs) = payload.notification_preferences {
+    // Create notification preferences if email provided (all three notify flags set to true)
+    if let Some(ref email) = payload.notification_email {
         let pref_id = Uuid::now_v7();
         sqlx::query(
             r#"INSERT INTO notification_preferences (id, reporter_id, email, notify_on_reply, notify_on_status_change, notify_on_close, created_at, updated_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+               VALUES ($1, $2, $3, TRUE, TRUE, TRUE, $4, $4)
                ON CONFLICT (reporter_id) DO UPDATE SET
                    email = EXCLUDED.email,
-                   notify_on_reply = EXCLUDED.notify_on_reply,
-                   notify_on_status_change = EXCLUDED.notify_on_status_change,
-                   notify_on_close = EXCLUDED.notify_on_close,
                    updated_at = EXCLUDED.updated_at"#,
         )
         .bind(pref_id)
         .bind(reporter_id)
-        .bind(&prefs.email)
-        .bind(prefs.notify_on_reply)
-        .bind(prefs.notify_on_status_change)
-        .bind(prefs.notify_on_close)
+        .bind(email)
         .bind(now)
         .execute(&mut *tx)
         .await
