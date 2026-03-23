@@ -101,7 +101,14 @@ async fn create_thread(
     .bind(now)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
 
     sqlx::query(
         r#"
@@ -183,6 +190,24 @@ async fn create_thread_atomic(
         )
     })?;
 
+    // Ensure reporters record exists first (required for FK constraint on feedback_threads.reporter_id)
+    sqlx::query(
+        r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2)
+           ON CONFLICT (id) DO NOTHING"#,
+    )
+    .bind(reporter_id)
+    .bind(now)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
     sqlx::query(
         r#"
         INSERT INTO feedback_threads (
@@ -242,22 +267,6 @@ async fn create_thread_atomic(
 
     // Create notification preferences if email provided (all three notify flags set to true)
     if let Some(ref email) = payload.notification_email {
-        // Ensure reporters record exists first (upsert)
-        sqlx::query(
-            r#"INSERT INTO reporters (id, created_at) VALUES ($1, $2)
-               ON CONFLICT (id) DO NOTHING"#,
-        )
-        .bind(reporter_id)
-        .bind(now)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse { error: e.to_string() }),
-            )
-        })?;
-
         let pref_id = Uuid::now_v7();
         sqlx::query(
             r#"INSERT INTO notification_preferences (id, reporter_id, email, notify_on_reply, notify_on_status_change, notify_on_close, created_at, updated_at)
