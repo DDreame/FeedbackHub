@@ -337,8 +337,144 @@ async fn update_feedback(
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// API Key Authentication for /v1/dev/* routes
 // ---------------------------------------------------------------------------
+
+use axum::{
+    extract::Request,
+    middleware::Next,
+    response::Response,
+};
+
+/// Compute SHA-256 hex string of a plaintext API key.
+fn sha256_hash(key: &str) -> String {
+    use sha2::Digest;
+    use std::fmt::Write;
+    let result = sha2::Sha256::digest(key.as_bytes());
+    let mut hex = String::with_capacity(64);
+    for b in result {
+        write!(&mut hex, "{:02x}", b).unwrap();
+    }
+    hex
+}
+
+/// Middleware: validates X-API-Key header against api_keys table.
+/// Returns 401 if key is missing, invalid, or inactive.
+pub async fn api_key_auth(
+    State(state): axum::extract::State<AppState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    // Extract X-API-Key header
+    let key = match request.headers().get("x-api-key") {
+        Some(v) => match v.to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+                return axum::response::IntoResponse::into_response(resp);
+            }
+        },
+        None => {
+            let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+            return axum::response::IntoResponse::into_response(resp);
+        }
+    };
+
+    let key_hash = sha256_hash(key);
+
+    // Validate key exists and is active
+    let is_valid = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM api_keys WHERE key_hash = $1 AND is_active = TRUE)",
+    )
+    .bind(&key_hash)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("API key validation error: {}", e);
+        e
+    })
+    .ok()
+    .flatten()
+    .unwrap_or(false);
+
+    if !is_valid {
+        let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+        return axum::response::IntoResponse::into_response(resp);
+    }
+
+    // Update last_used_at
+    let _ = sqlx::query(
+        "UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = $1",
+    )
+    .bind(&key_hash)
+    .execute(&state.db)
+    .await;
+
+    next.run(request).await
+}
+
+// ---------------------------------------------------------------------------
+// API Key Management Endpoints
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateApiKeyRequest {
+    pub email: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreateApiKeyResponse {
+    pub id: Uuid,
+    pub api_key: String,    // Only returned ONCE at creation
+    pub email: String,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// POST /v1/dev/api-keys
+/// Generate a new API key. The plaintext key is only returned once.
+pub async fn create_api_key(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateApiKeyRequest>,
+) -> Result<(StatusCode, Json<CreateApiKeyResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Generate a secure random API key
+    let raw_key = uuid::Uuid::now_v7().to_string() + &uuid::Uuid::now_v7().to_string()[..8];
+    let key_hash = sha256_hash(&raw_key);
+
+    let id = Uuid::now_v7();
+    let now = Utc::now();
+
+    sqlx::query(
+        r#"INSERT INTO api_keys (id, key_hash, email, name, created_at, is_active)
+           VALUES ($1, $2, $3, $4, $5, TRUE)"#,
+    )
+    .bind(id)
+    .bind(&key_hash)
+    .bind(&payload.email)
+    .bind(payload.name.as_deref().unwrap_or(""))
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("create_api_key error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: e.to_string() }),
+        )
+    })?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateApiKeyResponse {
+            id,
+            api_key: raw_key, // Only returned once!
+            email: payload.email,
+            name: payload.name.unwrap_or_default(),
+            created_at: now,
+        }),
+    ))
+}
 
 #[cfg(test)]
 mod tests {

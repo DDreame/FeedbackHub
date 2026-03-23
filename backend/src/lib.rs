@@ -2,9 +2,10 @@ pub mod db;
 pub mod model;
 pub mod routes;
 
-use axum::{Json, Router, routing::get};
+use axum::{Json, Router, routing::get, middleware};
 use routes::apps::app_routes;
-use routes::feedback::{AppState, RateLimiter, feedback_routes};
+use routes::developer::dev_routes;
+use routes::feedback::{api_key_auth, AppState, RateLimiter, feedback_routes};
 use routes::project::project_routes;
 use serde::Serialize;
 
@@ -25,12 +26,17 @@ pub fn app_with_state(state: AppState) -> Router {
     let state2 = state.clone();
     let state3 = state.clone();
     let state4 = state.clone();
+    let _state5 = state.clone();
     let health = Router::new().route("/api/health", get(health));
+    // Dev routes protected by API key auth middleware
+    let dev_api = dev_routes(state.clone())
+        .layer(middleware::from_fn_with_state(state.clone(), api_key_auth));
     health
         .merge(app_routes(state))
         .merge(feedback_routes(state2))
         .merge(project_routes(state3))
         .merge(routes::threads::thread_routes(state4))
+        .merge(dev_api)
 }
 
 fn create_pool_from_env() -> sqlx::PgPool {
