@@ -2,6 +2,7 @@
 name = "feedback-system-backend"
 version = "0.1.0"
 edition = "2024"
+default-run = "feedback-system-backend"
 
 [dependencies]
 axum = "0.8.7"
