@@ -12,9 +12,8 @@ use uuid::Uuid;
 
 use crate::model::thread::{
     AddMessageRequest, ContextSnapshot, CreateThreadAtomicRequest, CreateThreadAtomicResponse,
-    CreateThreadRequest, CreateThreadResponse, FeedbackMessage,
-    FeedbackThread, MessageResponse, ThreadResponse,
-    ThreadStatus,
+    CreateThreadRequest, CreateThreadResponse, FeedbackMessage, FeedbackThread, MessageResponse,
+    ThreadResponse, ThreadStatus,
 };
 
 #[allow(unused_imports)]
@@ -268,7 +267,15 @@ async fn list_my_threads(
 
     // Validate status value to prevent SQL injection
     let status_value = query.status.as_ref().and_then(|s| {
-        if ["received", "in_review", "waiting_for_user", "closed", "deleted"].contains(&s.as_str()) {
+        if [
+            "received",
+            "in_review",
+            "waiting_for_user",
+            "closed",
+            "deleted",
+        ]
+        .contains(&s.as_str())
+        {
             Some(s.clone())
         } else {
             None
@@ -498,21 +505,19 @@ async fn delete_my_thread(
     }
 
     let now = Utc::now();
-    sqlx::query(
-        r#"UPDATE feedback_threads SET status = 'deleted', updated_at = $1 WHERE id = $2"#,
-    )
-    .bind(now)
-    .bind(thread_id)
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    sqlx::query(r#"UPDATE feedback_threads SET status = 'deleted', updated_at = $1 WHERE id = $2"#)
+        .bind(now)
+        .bind(thread_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     let row: Option<FeedbackThread> = sqlx::query_as(
         r#"

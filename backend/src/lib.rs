@@ -2,10 +2,10 @@ pub mod db;
 pub mod model;
 pub mod routes;
 
-use axum::{Json, Router, routing::get, middleware};
+use axum::{Json, Router, middleware, routing::get};
 use routes::apps::app_routes;
 use routes::developer::dev_routes;
-use routes::feedback::{api_key_auth, AppState, RateLimiter, feedback_routes};
+use routes::feedback::{AppState, RateLimiter, api_key_auth, feedback_routes};
 use routes::project::project_routes;
 use serde::Serialize;
 

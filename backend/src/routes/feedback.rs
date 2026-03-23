@@ -340,11 +340,7 @@ async fn update_feedback(
 // API Key Authentication for /v1/dev/* routes
 // ---------------------------------------------------------------------------
 
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, middleware::Next, response::Response};
 
 /// Compute SHA-256 hex string of a plaintext API key.
 fn sha256_hash(key: &str) -> String {
@@ -370,12 +366,22 @@ pub async fn api_key_auth(
         Some(v) => match v.to_str() {
             Ok(s) => s,
             Err(_) => {
-                let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+                let resp = (
+                    StatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse {
+                        error: "Invalid or missing API key".to_string(),
+                    }),
+                );
                 return axum::response::IntoResponse::into_response(resp);
             }
         },
         None => {
-            let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+            let resp = (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "Invalid or missing API key".to_string(),
+                }),
+            );
             return axum::response::IntoResponse::into_response(resp);
         }
     };
@@ -398,17 +404,20 @@ pub async fn api_key_auth(
     .unwrap_or(false);
 
     if !is_valid {
-        let resp = (StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid or missing API key".to_string() }));
+        let resp = (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid or missing API key".to_string(),
+            }),
+        );
         return axum::response::IntoResponse::into_response(resp);
     }
 
     // Update last_used_at
-    let _ = sqlx::query(
-        "UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = $1",
-    )
-    .bind(&key_hash)
-    .execute(&state.db)
-    .await;
+    let _ = sqlx::query("UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = $1")
+        .bind(&key_hash)
+        .execute(&state.db)
+        .await;
 
     next.run(request).await
 }
@@ -426,7 +435,7 @@ pub struct CreateApiKeyRequest {
 #[derive(Debug, Serialize)]
 pub struct CreateApiKeyResponse {
     pub id: Uuid,
-    pub api_key: String,    // Only returned ONCE at creation
+    pub api_key: String, // Only returned ONCE at creation
     pub email: String,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -460,7 +469,9 @@ pub async fn create_api_key(
         eprintln!("create_api_key error: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 

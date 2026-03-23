@@ -46,7 +46,9 @@ pub struct ErrorResponse {
 
 impl From<&'static str> for ErrorResponse {
     fn from(s: &'static str) -> Self {
-        ErrorResponse { error: s.to_string() }
+        ErrorResponse {
+            error: s.to_string(),
+        }
     }
 }
 
@@ -72,7 +74,15 @@ async fn dev_list_threads(
 
     // Validate status value to prevent SQL injection
     let status_value = query.status.as_ref().and_then(|s| {
-        if ["received", "in_review", "waiting_for_user", "closed", "deleted"].contains(&s.as_str()) {
+        if [
+            "received",
+            "in_review",
+            "waiting_for_user",
+            "closed",
+            "deleted",
+        ]
+        .contains(&s.as_str())
+        {
             Some(s.clone())
         } else {
             None
@@ -81,9 +91,8 @@ async fn dev_list_threads(
 
     // Use parameterized query - build dynamically with bound params
     let rows: Vec<FeedbackThread> = match (&status_value, &query.category, &query.assignee_id) {
-        (None, None, None) => {
-            sqlx::query_as(
-                r#"
+        (None, None, None) => sqlx::query_as(
+            r#"
                 SELECT id, reporter_id, reporter_contact, category, status, summary,
                        latest_public_message_at, created_at, updated_at, closed_at,
                        context_app_version, context_build_number, context_os_name,
@@ -95,18 +104,19 @@ async fn dev_list_threads(
                 ORDER BY latest_public_message_at DESC
                 LIMIT $1 OFFSET $2
                 "#,
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
             )
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
-                )
-            })?
-        }
+        })?,
         _ => {
             let category_pattern = query.category.as_deref().map(|c| format!("%{}%", c));
             sqlx::query_as(
@@ -136,7 +146,9 @@ async fn dev_list_threads(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?
         }
@@ -144,12 +156,10 @@ async fn dev_list_threads(
 
     let total: i64 = match (&status_value, &query.category, &query.assignee_id) {
         (None, None, None) => {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM feedback_threads WHERE status != 'deleted'",
-            )
-            .fetch_one(&state.db)
-            .await
-            .unwrap_or(0)
+            sqlx::query_scalar("SELECT COUNT(*) FROM feedback_threads WHERE status != 'deleted'")
+                .fetch_one(&state.db)
+                .await
+                .unwrap_or(0)
         }
         _ => {
             let category_pattern = query.category.as_deref().map(|c| format!("%{}%", c));
@@ -209,7 +219,9 @@ async fn dev_get_thread(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
@@ -217,7 +229,9 @@ async fn dev_get_thread(
         Some(thread) => Ok(Json(DeveloperThreadResponse::from(thread))),
         None => Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         )),
     }
 }
@@ -236,14 +250,18 @@ async fn dev_reply(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if !exists {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -298,20 +316,26 @@ async fn dev_update_status(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     let current_status = current_status.ok_or((
         StatusCode::NOT_FOUND,
-        Json(ErrorResponse { error: "thread not found".to_string() }),
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
     ))?;
 
     let current: ThreadStatus =
         serde_json::from_str(&format!("\"{}\"", current_status)).map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse { error: "invalid current status".to_string() }),
+                Json(ErrorResponse {
+                    error: "invalid current status".to_string(),
+                }),
             )
         })?;
 
@@ -343,7 +367,9 @@ async fn dev_update_status(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
@@ -364,7 +390,9 @@ async fn dev_update_status(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
@@ -372,7 +400,9 @@ async fn dev_update_status(
         Some(thread) => Ok(Json(DeveloperThreadResponse::from(thread))),
         None => Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         )),
     }
 }
@@ -396,14 +426,18 @@ async fn dev_assign(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if !exists {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -424,14 +458,18 @@ async fn dev_assign(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
     if result.rows_affected() == 0 {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -451,14 +489,18 @@ async fn dev_unassign(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if !exists {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -473,14 +515,18 @@ async fn dev_unassign(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
     if result.rows_affected() == 0 {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -501,14 +547,18 @@ async fn dev_add_internal_note(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if !exists {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -537,7 +587,9 @@ async fn dev_add_internal_note(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
 
@@ -585,14 +637,18 @@ async fn dev_mark_spam(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if !exists {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -607,14 +663,18 @@ async fn dev_mark_spam(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse { error: e.to_string() }),
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
                 )
             })?;
 
     if result.rows_affected() == 0 {
         return Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: "thread not found".to_string() }),
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
         ));
     }
 
@@ -642,7 +702,9 @@ async fn dev_list_apps(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
         )
     })?;
     Ok(Json(rows))
@@ -657,13 +719,34 @@ pub fn dev_routes(state: AppState) -> Router {
     Router::new()
         .route("/v1/dev/feedback/threads", get(dev_list_threads))
         .route("/v1/dev/feedback/threads/{thread_id}", get(dev_get_thread))
-        .route("/v1/dev/feedback/threads/{thread_id}/reply", post(dev_reply))
-        .route("/v1/dev/feedback/threads/{thread_id}/status", post(dev_update_status))
-        .route("/v1/dev/feedback/threads/{thread_id}/assign", post(dev_assign))
-        .route("/v1/dev/feedback/threads/{thread_id}/assign", delete(dev_unassign))
-        .route("/v1/dev/feedback/threads/{thread_id}/internal-note", post(dev_add_internal_note))
-        .route("/v1/dev/feedback/threads/{thread_id}/messages", get(dev_list_messages))
-        .route("/v1/dev/feedback/threads/{thread_id}/spam", post(dev_mark_spam))
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/reply",
+            post(dev_reply),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/status",
+            post(dev_update_status),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/assign",
+            post(dev_assign),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/assign",
+            delete(dev_unassign),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/internal-note",
+            post(dev_add_internal_note),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/messages",
+            get(dev_list_messages),
+        )
+        .route(
+            "/v1/dev/feedback/threads/{thread_id}/spam",
+            post(dev_mark_spam),
+        )
         .route("/v1/dev/feedback/apps", get(dev_list_apps))
         .route("/v1/dev/api-keys", post(create_api_key))
         .with_state(state)
