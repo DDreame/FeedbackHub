@@ -16,6 +16,7 @@ pub enum ThreadStatus {
     InReview,
     WaitingForUser,
     Closed,
+    Deleted,
 }
 
 impl ThreadStatus {
@@ -25,6 +26,7 @@ impl ThreadStatus {
             ThreadStatus::InReview => "in_review",
             ThreadStatus::WaitingForUser => "waiting_for_user",
             ThreadStatus::Closed => "closed",
+            ThreadStatus::Deleted => "deleted",
         }
     }
 
@@ -37,6 +39,10 @@ impl ThreadStatus {
                 | (ThreadStatus::WaitingForUser, ThreadStatus::InReview)
                 | (ThreadStatus::WaitingForUser, ThreadStatus::Closed)
                 | (ThreadStatus::Closed, ThreadStatus::InReview)
+                // Reporter can delete from any non-closed state
+                | (ThreadStatus::Received, ThreadStatus::Deleted)
+                | (ThreadStatus::InReview, ThreadStatus::Deleted)
+                | (ThreadStatus::WaitingForUser, ThreadStatus::Deleted)
         )
     }
 }
@@ -343,6 +349,7 @@ mod tests {
         assert_eq!(ThreadStatus::InReview.as_str(), "in_review");
         assert_eq!(ThreadStatus::WaitingForUser.as_str(), "waiting_for_user");
         assert_eq!(ThreadStatus::Closed.as_str(), "closed");
+        assert_eq!(ThreadStatus::Deleted.as_str(), "deleted");
     }
 
     #[test]
@@ -353,6 +360,10 @@ mod tests {
         assert!(ThreadStatus::WaitingForUser.can_transition_to(&ThreadStatus::InReview));
         assert!(ThreadStatus::WaitingForUser.can_transition_to(&ThreadStatus::Closed));
         assert!(ThreadStatus::Closed.can_transition_to(&ThreadStatus::InReview));
+        // Soft delete transitions
+        assert!(ThreadStatus::Received.can_transition_to(&ThreadStatus::Deleted));
+        assert!(ThreadStatus::InReview.can_transition_to(&ThreadStatus::Deleted));
+        assert!(ThreadStatus::WaitingForUser.can_transition_to(&ThreadStatus::Deleted));
     }
 
     #[test]
@@ -363,12 +374,21 @@ mod tests {
         assert!(!ThreadStatus::WaitingForUser.can_transition_to(&ThreadStatus::Received));
         assert!(!ThreadStatus::Closed.can_transition_to(&ThreadStatus::Received));
         assert!(!ThreadStatus::Closed.can_transition_to(&ThreadStatus::WaitingForUser));
+        // Cannot transition FROM Deleted to any other status
+        assert!(!ThreadStatus::Deleted.can_transition_to(&ThreadStatus::Received));
+        assert!(!ThreadStatus::Deleted.can_transition_to(&ThreadStatus::InReview));
+        assert!(!ThreadStatus::Deleted.can_transition_to(&ThreadStatus::WaitingForUser));
+        assert!(!ThreadStatus::Deleted.can_transition_to(&ThreadStatus::Closed));
+        // Cannot delete a closed thread
+        assert!(!ThreadStatus::Closed.can_transition_to(&ThreadStatus::Deleted));
     }
 
     #[test]
     fn thread_status_serialize_to_snake_case() {
         let json = serde_json::to_value(ThreadStatus::InReview).unwrap();
         assert_eq!(json, "in_review");
+        let json_del = serde_json::to_value(ThreadStatus::Deleted).unwrap();
+        assert_eq!(json_del, "deleted");
     }
 
     #[test]
@@ -376,6 +396,9 @@ mod tests {
         let json = serde_json::json!("waiting_for_user");
         let s: ThreadStatus = serde_json::from_value(json).unwrap();
         assert_eq!(s, ThreadStatus::WaitingForUser);
+        let json_del = serde_json::json!("deleted");
+        let s_del: ThreadStatus = serde_json::from_value(json_del).unwrap();
+        assert_eq!(s_del, ThreadStatus::Deleted);
     }
 
     #[test]

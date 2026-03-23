@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   getThread,
   listMessages,
   addMessage,
+  deleteThread,
   STATUS_LABELS,
   type ThreadResponse,
   type MessageResponse,
@@ -12,13 +14,18 @@ import { useStatusNotification } from '../hooks/useStatusNotification';
 import { StatusNotificationBanner } from '../components/StatusNotificationBanner';
 
 export function FeedbackThreadPage() {
+  const { t } = useTranslation();
   const { threadId } = useParams<{ threadId: string }>();
+  const navigate = useNavigate();
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { notification, dismiss } = useStatusNotification(threadId || '', thread?.status || '');
@@ -52,6 +59,13 @@ export function FeedbackThreadPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyContent.trim() || !threadId) return;
@@ -68,6 +82,22 @@ export function FeedbackThreadPage() {
       setError(err instanceof Error ? err.message : '发送失败');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!threadId) return;
+    setIsDeleting(true);
+    try {
+      await deleteThread(threadId);
+      setToast({ message: t('thread.deleteSuccess'), type: 'success' });
+      setShowDeleteConfirm(false);
+      setTimeout(() => navigate('/history'), 1500);
+    } catch {
+      setToast({ message: t('thread.deleteError'), type: 'error' });
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -90,6 +120,8 @@ export function FeedbackThreadPage() {
       case 'waiting_for_user':
         return 'status-waiting';
       case 'closed':
+        return 'status-closed';
+      case 'deleted':
         return 'status-closed';
       default:
         return '';
@@ -114,6 +146,12 @@ export function FeedbackThreadPage() {
           <StatusNotificationBanner message={notification.message} status={notification.status} onDismiss={dismiss} />
         )}
 
+        {toast && (
+          <div className={`toast toast-${toast.type}`} role="alert">
+            {toast.message}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="loading">加载中...</div>
         ) : thread ? (
@@ -125,6 +163,15 @@ export function FeedbackThreadPage() {
                   {STATUS_LABELS[thread.status] || thread.status}
                 </span>
                 <span className="thread-category">{thread.category}</span>
+                {thread.status !== 'deleted' && (
+                  <button
+                    className="btn-delete"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    aria-label={t('thread.delete')}
+                  >
+                    {t('thread.delete')}
+                  </button>
+                )}
               </div>
               <p className="thread-summary">{thread.summary}</p>
               <div className="thread-context-info">
@@ -135,6 +182,32 @@ export function FeedbackThreadPage() {
                 <span>{formatDate(thread.created_at)}</span>
               </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm && (
+              <div className="modal-overlay" role="dialog" aria-modal="true">
+                <div className="modal-content">
+                  <h3>{t('thread.deleteConfirmTitle')}</h3>
+                  <p>{t('thread.deleteConfirmMessage')}</p>
+                  <div className="modal-actions">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                    >
+                      {t('thread.cancel')}
+                    </button>
+                    <button
+                      className="btn-danger"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? t('app.loading') : t('thread.delete')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Messages */}
             <div className="messages-container">

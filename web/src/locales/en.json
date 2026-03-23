@@ -31,6 +31,7 @@
     "inReview": "In Review",
     "waitingForUser": "Waiting for Info",
     "closed": "Closed",
+    "deleted": "Deleted",
     "searchPlaceholder": "Search feedback...",
     "filter": "Filter",
     "filterStatus": "Status",
@@ -95,5 +96,13 @@
     "waitingResponse": "💬 The developer has responded, awaiting your action.",
     "closed": "✅ This feedback has been closed. You can continue to reply if needed.",
     "statusChanged": "Status updated"
+  },
+  "thread": {
+    "delete": "Delete",
+    "deleteConfirmTitle": "Confirm Deletion",
+    "deleteConfirmMessage": "Are you sure you want to delete this feedback? It cannot be recovered after deletion.",
+    "deleteSuccess": "Feedback deleted",
+    "deleteError": "Delete failed, please try again",
+    "cancel": "Cancel"
   }
 }

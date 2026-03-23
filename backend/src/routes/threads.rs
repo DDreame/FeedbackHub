@@ -268,7 +268,7 @@ async fn list_my_threads(
 
     // Validate status value to prevent SQL injection
     let status_value = query.status.as_ref().and_then(|s| {
-        if ["received", "in_review", "waiting_for_user", "closed"].contains(&s.as_str()) {
+        if ["received", "in_review", "waiting_for_user", "closed", "deleted"].contains(&s.as_str()) {
             Some(s.clone())
         } else {
             None
@@ -291,6 +291,7 @@ async fn list_my_threads(
                    SELECT 1 FROM feedback_messages m
                    WHERE m.thread_id = t.id AND m.body ILIKE $5 AND m.is_internal = FALSE
                ))
+          AND t.status != 'deleted'
         "#,
     )
     .bind(reporter_id)
@@ -330,6 +331,7 @@ async fn list_my_threads(
                    SELECT 1 FROM feedback_messages m
                    WHERE m.thread_id = t.id AND m.body ILIKE $5 AND m.is_internal = FALSE
                ))
+          AND t.status != 'deleted'
         ORDER BY t.latest_public_message_at DESC
         LIMIT $6 OFFSET $7
         "#,
@@ -422,7 +424,7 @@ async fn get_my_thread(
 }
 
 /// DELETE /v1/feedback/threads/:thread_id
-/// Reporter deletes their own thread (and all messages via CASCADE)
+/// Reporter soft-deletes their own thread by setting status to 'deleted'
 async fn delete_my_thread(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -435,7 +437,7 @@ async fn delete_my_thread(
         }),
     ))?;
 
-    // Verify thread ownership
+    // Verify thread ownership and get current status
     let thread: Option<FeedbackThread> = sqlx::query_as(
         r#"
         SELECT id, reporter_id, reporter_contact, category, status, summary,
@@ -475,21 +477,75 @@ async fn delete_my_thread(
         ));
     }
 
-    // Delete thread (messages are CASCADE deleted)
-    sqlx::query(r#"DELETE FROM feedback_threads WHERE id = $1"#)
-        .bind(thread_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
+    // Parse current status and validate transition to Deleted
+    let current: ThreadStatus =
+        serde_json::from_str(&format!("\"{}\"", thread.status)).map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
-                    error: e.to_string(),
+                    error: "invalid current status".to_string(),
                 }),
             )
         })?;
 
-    Ok(StatusCode::NO_CONTENT)
+    if !current.can_transition_to(&ThreadStatus::Deleted) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!("cannot delete a thread in status '{}'", thread.status),
+            }),
+        ));
+    }
+
+    let now = Utc::now();
+    sqlx::query(
+        r#"UPDATE feedback_threads SET status = 'deleted', updated_at = $1 WHERE id = $2"#,
+    )
+    .bind(now)
+    .bind(thread_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let row: Option<FeedbackThread> = sqlx::query_as(
+        r#"
+        SELECT id, reporter_id, reporter_contact, category, status, summary,
+               latest_public_message_at, created_at, updated_at, closed_at,
+               context_app_version, context_build_number, context_os_name,
+               context_os_version, context_device_model, context_locale,
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
+        FROM feedback_threads WHERE id = $1
+        "#,
+    )
+    .bind(thread_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    match row {
+        Some(t) => Ok(Json(ThreadResponse::from(t))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        )),
+    }
 }
 
 /// POST /v1/feedback/threads/:thread_id/messages
@@ -735,7 +791,7 @@ async fn dev_list_threads(
 
     // Validate status value to prevent SQL injection
     let status_value = query.status.as_ref().and_then(|s| {
-        if ["received", "in_review", "waiting_for_user", "closed"].contains(&s.as_str()) {
+        if ["received", "in_review", "waiting_for_user", "closed", "deleted"].contains(&s.as_str()) {
             Some(s.clone())
         } else {
             None

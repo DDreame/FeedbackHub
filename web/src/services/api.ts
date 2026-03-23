@@ -84,6 +84,7 @@ export const STATUS_LABELS: Record<string, string> = {
   in_review: '处理中',
   waiting_for_user: '待补充信息',
   closed: '已关闭',
+  deleted: '已删除',
 };
 
 // Category mapping for display
@@ -300,6 +301,21 @@ export async function listMessages(threadId: string): Promise<MessageResponse[]>
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || 'Failed to fetch messages');
+  }
+
+  return response.json();
+}
+
+// Delete a thread (soft delete — sets status to 'deleted')
+export async function deleteThread(threadId: string): Promise<{ status: string }> {
+  const response = await fetch(`${API_BASE}/feedback/threads/${threadId}`, {
+    method: 'DELETE',
+    headers: buildReporterHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete feedback');
   }
 
   return response.json();

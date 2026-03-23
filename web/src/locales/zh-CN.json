@@ -31,6 +31,7 @@
     "inReview": "处理中",
     "waitingForUser": "待补充信息",
     "closed": "已关闭",
+    "deleted": "已删除",
     "searchPlaceholder": "搜索反馈内容...",
     "filter": "筛选",
     "filterStatus": "状态",
@@ -95,5 +96,13 @@
     "waitingResponse": "💬 开发者已回复，等待您的操作",
     "closed": "✅ 此反馈已关闭，如有需要可继续回复",
     "statusChanged": "状态已更新"
+  },
+  "thread": {
+    "delete": "删除",
+    "deleteConfirmTitle": "确认删除",
+    "deleteConfirmMessage": "确定要删除这条反馈吗？删除后将无法恢复。",
+    "deleteSuccess": "反馈已删除",
+    "deleteError": "删除失败，请重试",
+    "cancel": "取消"
   }
 }

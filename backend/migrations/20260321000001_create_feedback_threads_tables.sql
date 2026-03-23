@@ -20,7 +20,7 @@ CREATE TABLE feedback_threads (
     context_current_route       TEXT         NOT NULL DEFAULT '',
     context_captured_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     context_reporter_account_id VARCHAR(255),
-    CONSTRAINT ck_threads_status CHECK (status IN ('received', 'in_review', 'waiting_for_user', 'closed'))
+    CONSTRAINT ck_threads_status CHECK (status IN ('received', 'in_review', 'waiting_for_user', 'closed', 'deleted'))
 );
 
 -- FeedbackMessage: individual messages within a thread

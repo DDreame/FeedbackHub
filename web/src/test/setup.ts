@@ -72,6 +72,13 @@ vi.mock('react-i18next', () => {
       // app
       'app.loading': '加载中...',
       'app.loadError': '加载失败',
+      // thread
+      'thread.delete': '删除',
+      'thread.deleteConfirmTitle': '确认删除',
+      'thread.deleteConfirmMessage': '确定要删除这条反馈吗？删除后将无法恢复。',
+      'thread.deleteSuccess': '反馈已删除',
+      'thread.deleteError': '删除失败，请重试',
+      'thread.cancel': '取消',
       // home
       'home.title': 'FeedBack System',
       'home.historyDescription': '查看您提交的所有反馈记录',
