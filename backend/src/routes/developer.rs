@@ -556,6 +556,19 @@ async fn dev_reply(
         });
     }
 
+    // Audit log
+    let _ = crate::audit::log_audit(
+        &state.db,
+        thread_id,
+        None,
+        None,
+        crate::audit::AuditAction::Reply,
+        None,
+        None,
+        None,
+    )
+    .await;
+
     Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
 }
 
@@ -683,6 +696,19 @@ async fn dev_update_status(
                 .await;
             });
 
+            // Audit log
+            let _ = crate::audit::log_audit(
+                &state.db,
+                thread_id,
+                None,
+                None,
+                crate::audit::AuditAction::StatusChange,
+                Some(&current_status),
+                Some(payload.status.as_str()),
+                None,
+            )
+            .await;
+
             Ok(Json(DeveloperThreadResponse::from(thread)))
         }
         None => Err((
@@ -759,6 +785,19 @@ async fn dev_assign(
             }),
         ));
     }
+
+    // Audit log
+    let _ = crate::audit::log_audit(
+        &state.db,
+        thread_id,
+        None,
+        None,
+        crate::audit::AuditAction::Assign,
+        None,
+        assignee_id.map(|u| u.to_string()).as_deref(),
+        None,
+    )
+    .await;
 
     Ok(Json(AssignOkResponse { status: "ok" }))
 }

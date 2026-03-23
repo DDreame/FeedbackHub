@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod db;
 pub mod email;
 pub mod model;
