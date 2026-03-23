@@ -20,9 +20,9 @@ struct HealthResponse {
 
 pub fn app() -> Router {
     let rate_limit: usize = std::env::var("RATE_LIMIT_PER_MINUTE")
-        .unwrap_or_else(|_| "10".to_string())
+        .unwrap_or_else(|_| "100".to_string())
         .parse()
-        .unwrap_or(10);
+        .unwrap_or(100);
     app_with_state(AppState {
         db: create_pool_from_env(),
         rate_limiter: RateLimiter::new(rate_limit, 60),
