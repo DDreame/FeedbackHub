@@ -212,3 +212,36 @@ pub fn template_close_notification(
         body_html: body,
     }
 }
+
+/// Build email for scheduled auto-follow-up when a thread is waiting for reporter response.
+pub fn template_follow_up_notification(
+    reporter_name: &str,
+    _app_name: &str,
+    thread_summary: &str,
+    thread_url: &str,
+) -> EmailPayload {
+    let body = format!(
+        r#"<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2>您好，{}</h2>
+  <p>我们注意到您之前提交了一条反馈，目前仍在等待您的回复：</p>
+  <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+    <p style="margin: 0;"><strong>反馈摘要：</strong> {}</p>
+  </div>
+  <p style="color: #666;">请查看开发者的回复并尽快提供所需信息，以便我们更好地帮助您解决问题。</p>
+  <a href="{}" style="display: inline-block; background: #007bff; color: white; padding: 10px 20px;
+     text-decoration: none; border-radius: 5px; margin-top: 10px;">查看并回复</a>
+</body>
+</html>"#,
+        reporter_name, thread_summary, thread_url
+    );
+
+    EmailPayload {
+        to_email: String::new(),
+        to_name: reporter_name.to_string(),
+        subject: format!("[FeedBack] 温馨提示：请回复您的反馈——{}", thread_summary),
+        body_html: body,
+    }
+}

@@ -624,13 +624,21 @@ async fn dev_update_status(
     } else {
         None
     };
+    // Schedule auto-follow-up 3 days after transitioning to waiting_for_user
+    let follow_up_due_at: Option<chrono::DateTime<Utc>> =
+        if payload.status == ThreadStatus::WaitingForUser {
+            Some(now + chrono::Duration::days(3))
+        } else {
+            None
+        };
 
     sqlx::query(
-        r#"UPDATE feedback_threads SET status = $1, updated_at = $2, closed_at = $3 WHERE id = $4"#,
+        r#"UPDATE feedback_threads SET status = $1, updated_at = $2, closed_at = $3, follow_up_due_at = $4 WHERE id = $5"#,
     )
     .bind(payload.status.as_str())
     .bind(now)
     .bind(closed_at)
+    .bind(follow_up_due_at)
     .bind(thread_id)
     .execute(&state.db)
     .await
@@ -1166,11 +1174,12 @@ async fn dev_merge_threads(
         )
     })?;
 
-    // Insert tags from source onto target
+    // Insert tags from source onto target (skip duplicates via ON CONFLICT DO NOTHING)
     sqlx::query(
         r#"
         INSERT INTO thread_tags (thread_id, tag_id, created_at)
         SELECT $1, tag_id, created_at FROM thread_tags WHERE thread_id = $2
+        ON CONFLICT (thread_id, tag_id) DO NOTHING
         "#,
     )
     .bind(target_id)
