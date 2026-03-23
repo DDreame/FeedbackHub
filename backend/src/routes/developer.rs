@@ -10,6 +10,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::email::{
+    self, EmailPayload, SmtpConfig, template_close_notification, template_reply_notification,
+    template_status_change_notification,
+};
 use crate::model::thread::{
     AddMessageRequest, DeveloperThreadResponse, FeedbackThread, InternalNoteRequest,
     MarkSpamRequest, MessageResponse, ThreadStatus, UpdateStatusRequest,
@@ -56,6 +60,119 @@ impl From<String> for ErrorResponse {
     fn from(s: String) -> Self {
         ErrorResponse { error: s }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Notification helpers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, sqlx::FromRow)]
+struct NotificationPrefs {
+    email: String,
+    notify_on_reply: bool,
+    notify_on_status_change: bool,
+    notify_on_close: bool,
+}
+
+/// Look up notification preferences for a reporter and send email notification.
+/// Runs asynchronously - failures are logged but do not affect the main request.
+async fn maybe_send_notification(
+    db: &sqlx::PgPool,
+    reporter_id: Uuid,
+    thread_summary: &str,
+    notification_type: NotificationType,
+) {
+    // Load SMTP config
+    let Some(smtp_config) = SmtpConfig::from_env() else {
+        eprintln!("SMTP not configured, skipping notification");
+        return;
+    };
+
+    if !smtp_config.is_configured() {
+        eprintln!("SMTP not configured, skipping notification");
+        return;
+    }
+
+    // Look up notification preferences
+    let prefs: Option<NotificationPrefs> = sqlx::query_as(
+        "SELECT email, notify_on_reply, notify_on_status_change, notify_on_close
+         FROM notification_preferences WHERE reporter_id = $1",
+    )
+    .bind(reporter_id)
+    .fetch_optional(db)
+    .await
+    .ok()
+    .flatten();
+
+    let Some(prefs) = prefs else {
+        return; // No notification preferences set
+    };
+
+    // Build email based on notification type
+    let should_notify = match notification_type {
+        NotificationType::Reply => prefs.notify_on_reply,
+        NotificationType::StatusChange { ref new_status } => {
+            if *new_status == "closed" {
+                prefs.notify_on_close
+            } else {
+                prefs.notify_on_status_change
+            }
+        }
+    };
+
+    if !should_notify {
+        return;
+    }
+
+    let (subject, body) = match notification_type {
+        NotificationType::Reply => {
+            let template = template_reply_notification(
+                "用户",
+                "",
+                thread_summary,
+                "", // message content would need to be passed
+                "https://feedback.example.com",
+            );
+            (template.subject, template.body_html)
+        }
+        NotificationType::StatusChange { new_status } => {
+            let template = if new_status == "closed" {
+                template_close_notification(
+                    "用户",
+                    "",
+                    thread_summary,
+                    "https://feedback.example.com",
+                )
+            } else {
+                template_status_change_notification(
+                    "用户",
+                    "",
+                    thread_summary,
+                    "",
+                    &new_status,
+                    "https://feedback.example.com",
+                )
+            };
+            (template.subject, template.body_html)
+        }
+    };
+
+    let email = EmailPayload {
+        to_email: prefs.email,
+        to_name: "用户".to_string(),
+        subject,
+        body_html: body,
+    };
+
+    // Send email asynchronously
+    if let Err(e) = email::send_email(&smtp_config, &email) {
+        eprintln!("Failed to send notification email: {}", e);
+    }
+}
+
+enum NotificationType {
+    Reply,
+    StatusChange { new_status: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -289,15 +406,32 @@ async fn dev_reply(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
 
+    // Get reporter_id and summary for notification
+    let thread_info: Option<(Uuid, String)> =
+        sqlx::query_as("SELECT reporter_id, summary FROM feedback_threads WHERE id = $1")
+            .bind(thread_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
     let message = crate::model::thread::FeedbackMessage {
         id,
         thread_id,
         author_type: "developer".to_string(),
-        body: payload.body,
+        body: payload.body.clone(),
         attachments: payload.attachments.unwrap_or_default(),
         created_at: now,
         is_internal: false,
     };
+
+    // Send email notification asynchronously (non-blocking)
+    if let Some((reporter_id, summary)) = thread_info {
+        let db = state.db.clone();
+        tokio::spawn(async move {
+            maybe_send_notification(&db, reporter_id, &summary, NotificationType::Reply).await;
+        });
+    }
 
     Ok((StatusCode::CREATED, Json(MessageResponse::from(message))))
 }
@@ -397,7 +531,26 @@ async fn dev_update_status(
     })?;
 
     match row {
-        Some(thread) => Ok(Json(DeveloperThreadResponse::from(thread))),
+        Some(thread) => {
+            // Send email notification asynchronously (non-blocking)
+            let db = state.db.clone();
+            let new_status_str = payload.status.as_str().to_string();
+            let reporter_id = thread.reporter_id;
+            let summary = thread.summary.clone();
+            tokio::spawn(async move {
+                maybe_send_notification(
+                    &db,
+                    reporter_id,
+                    &summary,
+                    NotificationType::StatusChange {
+                        new_status: new_status_str,
+                    },
+                )
+                .await;
+            });
+
+            Ok(Json(DeveloperThreadResponse::from(thread)))
+        }
         None => Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
