@@ -415,6 +415,12 @@ export interface DevThreadContext {
   reporter_account_id?: string;
 }
 
+export interface TagResponse {
+  id: string;
+  name: string;
+  color: string;
+  created_at: string;
+}
 export interface DeveloperThreadResponse {
   id: string;
   reporter_id: string;
@@ -430,6 +436,7 @@ export interface DeveloperThreadResponse {
   assignee_id?: string;
   is_spam: boolean;
   last_internal_note_at?: string;
+  tags?: TagResponse[];
 }
 
 export interface DevMessageResponse {
@@ -621,4 +628,144 @@ export async function devBulkUpdateStatus(
     updated: results.filter((r) => r.status === 'fulfilled').length,
     failed,
   };
+}
+
+
+// Assign a thread to a developer
+export async function devAssign(
+  threadId: string,
+  assigneeId: string
+): Promise<{ status: string }> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/assign`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignee_id: assigneeId }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to assign thread');
+  }
+
+  return response.json();
+}
+
+// Unassign a thread
+export async function devUnassign(threadId: string): Promise<{ status: string }> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/assign`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to unassign thread');
+  }
+
+  return response.json();
+}
+
+// List all tags
+export async function devListTags(): Promise<TagResponse[]> {
+  const response = await devApiFetch(`${DEV_API_BASE}/tags`, { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch tags');
+  }
+
+  return response.json();
+}
+
+// Create a tag
+export interface CreateTagRequest {
+  name: string;
+  color: string;
+}
+
+export async function devCreateTag(data: CreateTagRequest): Promise<TagResponse> {
+  const response = await devApiFetch(`${DEV_API_BASE}/tags`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create tag');
+  }
+
+  return response.json();
+}
+
+// Delete a tag
+export async function devDeleteTag(tagId: string): Promise<{ message: string }> {
+  const response = await devApiFetch(`${DEV_API_BASE}/tags/${tagId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete tag');
+  }
+
+  return response.json();
+}
+
+// List tags for a thread
+export async function devListThreadTags(threadId: string): Promise<TagResponse[]> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/tags`,
+    { method: 'GET' }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch thread tags');
+  }
+
+  return response.json();
+}
+
+// Add a tag to a thread
+export async function devAddTagToThread(
+  threadId: string,
+  tagId: string
+): Promise<{ message: string }> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/tags`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag_id: tagId }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to add tag to thread');
+  }
+
+  return response.json();
+}
+
+// Remove a tag from a thread
+export async function devRemoveTagFromThread(
+  threadId: string,
+  tagId: string
+): Promise<{ message: string }> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/tags/${tagId}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to remove tag from thread');
+  }
+
+  return response.json();
 }

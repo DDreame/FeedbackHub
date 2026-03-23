@@ -137,7 +137,12 @@
       "noteHint": "Internal notes are only visible to developers and are not shown to the reporter.",
       "addNote": "Add Note",
       "adding": "Adding...",
-      "noteError": "Failed to add note"
+      "noteError": "Failed to add note",
+      "assign": "Assign",
+      "unassign": "Unassign",
+      "assignee": "Assignee",
+      "addTag": "Add Tag",
+      "noTagsAvailable": "No more tags available"
     }
   },
   "apps": {

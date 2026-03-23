@@ -25,43 +25,53 @@ async function globalSetup() {
     await new Promise(r => setTimeout(r, 500));
   }
 
-  // Seed a default test app if none exists
-  let appKey = 'test-app';
+  // Seed two test apps for home page app selection grid (needs >1 app to show grid, not auto-navigate)
   try {
-    const appRes = await page.request.post('http://localhost:3000/v1/feedback/apps', {
-      json: { name: 'Test App', description: 'E2E test app' }
+    await page.request.post('http://localhost:3000/v1/feedback/apps', {
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ name: 'Test App 1', description: 'E2E test app 1' }),
     });
-    if (appRes.ok()) {
-      const appData = await appRes.json();
-      appKey = appData.app_key;
-    }
+    await page.request.post('http://localhost:3000/v1/feedback/apps', {
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ name: 'Test App 2', description: 'E2E test app 2' }),
+    });
   } catch {
-    // App might already exist — ignore
+    // Apps might already exist — ignore
   }
 
   // Create 25 feedback threads for pagination test (need >20 for pagination to show)
+  let threadsCreated = 0;
   for (let i = 0; i < 25; i++) {
     try {
-      await page.request.post('http://localhost:3000/v1/feedback/threads/atomic', {
-        headers: { 'X-Reporter-Id': REPORTER_ID },
-        json: {
-          reporter_id: REPORTER_ID,
-          category: '遇到问题',
-          summary: `E2E Test Feedback ${i + 1}`,
-          initial_message: `This is test feedback number ${i + 1} for E2E testing purposes.`,
-          context: {
-            app_version: '1.0.0',
-            os_name: 'Test OS',
-            os_version: '1.0.0',
-            device_model: 'Test Device',
-            locale: null,
-            current_route: '/history',
-          },
-        }
+      const body = JSON.stringify({
+        reporter_id: REPORTER_ID,
+        category: '遇到问题',
+        summary: `E2E Test Feedback ${i + 1}`,
+        initial_message: `This is test feedback number ${i + 1} for E2E testing purposes.`,
+        context: {
+          app_version: '1.0.0',
+          os_name: 'Test OS',
+          os_version: '1.0.0',
+          device_model: 'Test Device',
+          locale: null,
+          current_route: '/history',
+        },
       });
+      const res = await page.request.post('http://localhost:3000/v1/feedback/threads/atomic', {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Reporter-Id': REPORTER_ID,
+        },
+        data: body,
+      });
+      if (res.ok()) {
+        threadsCreated++;
+      }
     } catch {
       // Some may fail due to timing — ignore
     }
+    // Small delay between requests
+    if (i < 24) await new Promise(r => setTimeout(r, 100));
   }
 
   // Save storage state with reporter ID in localStorage

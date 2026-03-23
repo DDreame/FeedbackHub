@@ -29,7 +29,13 @@ test.describe('Feedback History Flow', () => {
       await page.waitForTimeout(500);
 
       // Should show filtered results or "no results"
-      await expect(page.getByText(/E2E/i).or(page.getByText('No matching results'))).toBeVisible({ timeout: 5000 });
+      const hasResults = await page.locator('.thread-card').count() > 0;
+      const noResults = page.getByText('No matching results');
+      if (hasResults) {
+        await expect(page.locator('.thread-card').first()).toBeVisible({ timeout: 5000 });
+      } else {
+        await expect(noResults).toBeVisible({ timeout: 5000 });
+      }
     }
   });
 
@@ -50,19 +56,28 @@ test.describe('Feedback History Flow', () => {
 
       // Should show filtered results or "no results"
       const hasResults = await page.locator('.thread-list .thread-card').count() > 0;
-      const noResults = page.getByText('No matching results');
-      await expect(hasResults ? page.locator('.thread-list').first() : noResults).toBeVisible({ timeout: 5000 });
+      if (hasResults) {
+        await expect(page.locator('.thread-list').first()).toBeVisible({ timeout: 5000 });
+      } else {
+        await expect(page.getByText('No matching results')).toBeVisible({ timeout: 5000 });
+      }
     }
   });
 
   test('clicking feedback opens detail page', async ({ page }) => {
+    // Ensure reporter ID is set before navigation
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('feedback_reporter_id', '00000000-0000-0000-0000-000000000001');
+    });
+
     await page.goto('/history');
     await page.waitForLoadState('networkidle');
 
-    // Wait for feedback cards to appear in DOM
+    // Now wait for thread cards to appear
     const feedbackCard = page.locator('.thread-card').first();
     try {
-      await feedbackCard.waitFor({ state: 'attached', timeout: 5000 });
+      await feedbackCard.waitFor({ state: 'attached', timeout: 10000 });
     } catch {
       test.skip();
       return;

@@ -415,6 +415,9 @@ export function ConsoleInboxPage() {
                       {thread.reporter_contact && (
                         <span className="thread-contact">{thread.reporter_contact}</span>
                       )}
+                      {thread.assignee_id && (
+                        <span className="thread-assignee">👤 {thread.assignee_id.slice(0, 8)}</span>
+                      )}
                     </div>
                   </button>
                 </div>

@@ -7,8 +7,14 @@ import {
   devAddReply,
   devUpdateStatus,
   devAddInternalNote,
+  devUnassign,
+  devListTags,
+  devListThreadTags,
+  devAddTagToThread,
+  devRemoveTagFromThread,
   type DeveloperThreadResponse,
   type DevMessageResponse,
+  type TagResponse,
 } from '../services/api';
 import { getDevApiKey } from '../services/api';
 import i18n from '../i18n';
@@ -41,6 +47,17 @@ export function ConsoleThreadPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
 
+  // Assignee state
+  const [showAssignMenu, setShowAssignMenu] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  // Tag state
+  const [threadTags, setThreadTags] = useState<TagResponse[]>([]);
+  const [allTags, setAllTags] = useState<TagResponse[]>([]);
+  const [showTagMenu, setShowTagMenu] = useState(false);
+  const [isManagingTags, setIsManagingTags] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
   const hasApiKey = !!getDevApiKey();
 
   const fetchThreadAndMessages = useCallback(async () => {
@@ -48,12 +65,16 @@ export function ConsoleThreadPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [threadData, messagesData] = await Promise.all([
+      const [threadData, messagesData, tagsData, allTagsData] = await Promise.all([
         devGetThread(threadId),
         devListMessages(threadId),
+        devListThreadTags(threadId),
+        devListTags(),
       ]);
       setThread(threadData);
       setMessages(messagesData);
+      setThreadTags(tagsData);
+      setAllTags(allTagsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('console.thread.loadError'));
     } finally {
@@ -113,6 +134,52 @@ export function ConsoleThreadPage() {
     }
   };
 
+  const handleUnassign = async () => {
+    if (!threadId) return;
+    setShowAssignMenu(false);
+    setIsAssigning(true);
+    setAssignError(null);
+    try {
+      await devUnassign(threadId);
+      const updated = await devGetThread(threadId);
+      setThread(updated);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Failed to unassign');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleAddTag = async (tagId: string) => {
+    if (!threadId) return;
+    setShowTagMenu(false);
+    setIsManagingTags(true);
+    setTagError(null);
+    try {
+      await devAddTagToThread(threadId, tagId);
+      const tags = await devListThreadTags(threadId);
+      setThreadTags(tags);
+    } catch (err) {
+      setTagError(err instanceof Error ? err.message : 'Failed to add tag');
+    } finally {
+      setIsManagingTags(false);
+    }
+  };
+
+  const handleRemoveTag = async (tagId: string) => {
+    if (!threadId) return;
+    setIsManagingTags(true);
+    setTagError(null);
+    try {
+      await devRemoveTagFromThread(threadId, tagId);
+      const tags = await devListThreadTags(threadId);
+      setThreadTags(tags);
+    } catch (err) {
+      setTagError(err instanceof Error ? err.message : 'Failed to remove tag');
+    } finally {
+      setIsManagingTags(false);
+    }
+  };
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
@@ -260,6 +327,116 @@ export function ConsoleThreadPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Assignee & Tags Row */}
+        <div className="dev-thread-tags-row">
+          {/* Assignee */}
+          <div className="dev-assignee-control">
+            {isAssigning && (
+              <span className="loading" style={{ fontSize: '0.875rem' }}>...</span>
+            )}
+            {assignError && (
+              <span className="form-error" style={{ fontSize: '0.875rem' }}>{assignError}</span>
+            )}
+            {!isAssigning && (
+              <div className="assignee-dropdown">
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={() => setShowAssignMenu(!showAssignMenu)}
+                  disabled={showAssignMenu}
+                >
+                  {thread.assignee_id
+                    ? `👤 ${t('console.thread.assignee')}: ${thread.assignee_id.slice(0, 8)}`
+                    : t('console.thread.assign')}
+                </button>
+                {showAssignMenu && (
+                  <div className="dropdown-menu">
+                    {thread.assignee_id && (
+                      <button
+                        className="dropdown-item"
+                        onClick={handleUnassign}
+                      >
+                        {t('console.thread.unassign')}
+                      </button>
+                    )}
+                    <button
+                      className="dropdown-item dropdown-item-cancel"
+                      onClick={() => setShowAssignMenu(false)}
+                    >
+                      {t('console.thread.cancel')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="dev-tags-control">
+            {tagError && (
+              <span className="form-error" style={{ fontSize: '0.875rem' }}>{tagError}</span>
+            )}
+            {threadTags.length > 0 && (
+              <div className="thread-tags-display">
+                {threadTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="thread-tag-badge"
+                    style={{ backgroundColor: tag.color + '33', borderColor: tag.color }}
+                  >
+                    {tag.name}
+                    <button
+                      className="thread-tag-remove"
+                      onClick={() => handleRemoveTag(tag.id)}
+                      disabled={isManagingTags}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="tag-add-dropdown">
+              <button
+                className="btn-secondary btn-sm"
+                onClick={() => setShowTagMenu(!showTagMenu)}
+                disabled={showTagMenu || isManagingTags}
+              >
+                + {t('console.thread.addTag')}
+              </button>
+              {showTagMenu && (
+                <div className="dropdown-menu">
+                  {allTags
+                    .filter((tag) => !threadTags.some((t) => t.id === tag.id))
+                    .map((tag) => (
+                      <button
+                        key={tag.id}
+                        className="dropdown-item"
+                        onClick={() => handleAddTag(tag.id)}
+                      >
+                        <span
+                          className="tag-dot"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.name}
+                      </button>
+                    ))}
+                  {allTags.filter((tag) => !threadTags.some((t) => t.id === tag.id)).length === 0 && (
+                    <div className="dropdown-item" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                      {t('console.thread.noTagsAvailable')}
+                    </div>
+                  )}
+                  <button
+                    className="dropdown-item dropdown-item-cancel"
+                    onClick={() => setShowTagMenu(false)}
+                  >
+                    {t('console.thread.cancel')}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

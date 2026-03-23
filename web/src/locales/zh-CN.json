@@ -136,7 +136,12 @@
       "noteHint": "内部备注仅对开发者可见，不会展示给用户。",
       "addNote": "添加备注",
       "adding": "添加中...",
-      "noteError": "添加备注失败"
+      "noteError": "添加备注失败",
+      "assign": "分配",
+      "unassign": "取消分配",
+      "assignee": "负责人",
+      "addTag": "添加标签",
+      "noTagsAvailable": "没有更多标签"
     }
   },
   "apps": {

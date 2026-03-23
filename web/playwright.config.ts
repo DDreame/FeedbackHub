@@ -17,11 +17,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        addInitScript: async ({ page }) => {
-          await page.evaluateOnNewDocument(() => {
-            localStorage.setItem('feedback_reporter_id', '00000000-0000-0000-0000-000000000001');
-          });
-        },
+        addInitScript: `localStorage.setItem('feedback_reporter_id', '00000000-0000-0000-0000-000000000001');`,
       },
     },
   ],
@@ -33,6 +29,7 @@ export default defineConfig({
       env: {
         DATABASE_URL: 'postgres://feedback:feedback_secret@localhost:5432/feedback_dev',
         RUST_LOG: 'info',
+        RATE_LIMIT_PER_MINUTE: '100',
       },
       timeout: 120000,
       reuseExistingServer: !process.env.CI,
