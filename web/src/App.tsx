@@ -9,6 +9,7 @@ import { ConsoleInboxPage } from './pages/ConsoleInboxPage'
 import { ConsoleThreadPage } from './pages/ConsoleThreadPage'
 import { ConsoleAnalyticsPage } from './pages/ConsoleAnalyticsPage'
 import { AppsPage } from './pages/AppsPage'
+import { StatusCheckPage } from './pages/StatusCheckPage'
 import { listApps, type AppResponse } from './services/api'
 import { toggleLanguage, getCurrentLanguage } from './i18n'
 
@@ -189,6 +190,7 @@ function App() {
         <Route path="/console/thread/:threadId" element={<ConsoleThreadPage />} />
         <Route path="/console/analytics" element={<ConsoleAnalyticsPage />} />
         <Route path="/apps" element={<AppsPage />} />
+        <Route path="/status-check" element={<StatusCheckPage />} />
       </Routes>
     </AppShell>
   );

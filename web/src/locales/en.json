@@ -265,5 +265,21 @@
     "statusWaitingForUser": "Waiting for you",
     "statusClosed": "Closed",
     "statusDeleted": "Deleted"
+  },
+  "statusCheck": {
+    "eyebrow": "Status Check",
+    "title": "Check Feedback Status",
+    "description": "Enter your feedback reference number to check the current status.",
+    "referenceLabel": "Reference Number",
+    "referencePlaceholder": "Enter your reference number (e.g. FB-93A7B2)",
+    "checkButton": "Check Status",
+    "checking": "Checking...",
+    "notFound": "Feedback not found. Please check your reference number.",
+    "fetchError": "Failed to fetch status. Please try again.",
+    "referenceNumber": "Reference Number",
+    "category": "Category",
+    "lastUpdate": "Last Update",
+    "resultHint": "If you have more questions, you can submit new feedback.",
+    "backToHome": "Back to Home"
   }
 }

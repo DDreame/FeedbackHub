@@ -264,5 +264,21 @@
     "statusWaitingForUser": "待补充信息",
     "statusClosed": "已关闭",
     "statusDeleted": "已删除"
+  },
+  "statusCheck": {
+    "eyebrow": "状态查询",
+    "title": "查询反馈状态",
+    "description": "输入您的反馈编号，查看当前处理状态。",
+    "referenceLabel": "反馈编号",
+    "referencePlaceholder": "请输入反馈编号（例如 FB-93A7B2）",
+    "checkButton": "查询状态",
+    "checking": "查询中...",
+    "notFound": "未找到该反馈记录，请检查编号是否正确。",
+    "fetchError": "查询失败，请重试。",
+    "referenceNumber": "反馈编号",
+    "category": "类型",
+    "lastUpdate": "最后更新",
+    "resultHint": "如有更多问题，您可以提交新的反馈。",
+    "backToHome": "返回首页"
   }
 }

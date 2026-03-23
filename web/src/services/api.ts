@@ -400,6 +400,30 @@ export async function addMessage(
 }
 
 // ---------------------------------------------------------------------------
+// Public API (no auth required)
+// ---------------------------------------------------------------------------
+
+export interface PublicStatusResponse {
+  thread_id: string;
+  status: string;
+  category: string;
+  latest_public_message_at: string;
+}
+
+export async function getPublicThreadStatus(threadId: string): Promise<PublicStatusResponse> {
+  const response = await fetch(`${API_BASE}/public/threads/${threadId}/status`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch status');
+  }
+
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
 // Developer API types
 // ---------------------------------------------------------------------------
 
