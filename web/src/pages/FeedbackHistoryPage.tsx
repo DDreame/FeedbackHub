@@ -5,6 +5,7 @@ import {
   STATUS_LABELS,
   type ThreadResponse,
 } from '../services/api';
+import { formatRefNumber } from '../utils/formatRefNumber';
 
 export function FeedbackHistoryPage() {
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
@@ -91,6 +92,7 @@ export function FeedbackHistoryPage() {
                     {STATUS_LABELS[thread.status] || thread.status}
                   </span>
                   <span className="thread-category">{thread.category}</span>
+                  <span className="thread-ref">{formatRefNumber(thread.id)}</span>
                 </div>
                 <p className="thread-summary">{thread.summary}</p>
                 <div className="thread-meta">
