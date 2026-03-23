@@ -1547,6 +1547,459 @@ async fn delete_template(
 }
 
 // ---------------------------------------------------------------------------
+// Authenticated App Creation (under API key auth)
+// ---------------------------------------------------------------------------
+
+/// POST /v1/dev/feedback/apps
+/// Create a new app with the authenticated developer as owner.
+async fn dev_create_app(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Json(payload): Json<super::apps::CreateAppRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    use crate::routes::apps::App;
+
+    let id = Uuid::now_v7();
+    let app_key = format!("app_{}", Uuid::now_v7().to_string().replace("-", ""));
+    let now = chrono::Utc::now();
+    let description = payload.description.unwrap_or_default();
+
+    let mut tx = state.db.begin().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    sqlx::query(
+        r#"INSERT INTO apps (id, name, app_key, description, created_at)
+           VALUES ($1, $2, $3, $4, $5)"#,
+    )
+    .bind(id)
+    .bind(&payload.name)
+    .bind(&app_key)
+    .bind(&description)
+    .bind(now)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    // Add the authenticated developer as owner
+    let member_id = Uuid::now_v7();
+    sqlx::query(
+        r#"INSERT INTO team_members (id, app_id, email, role, invited_at)
+           VALUES ($1, $2, $3, 'owner', $4)"#,
+    )
+    .bind(member_id)
+    .bind(id)
+    .bind(&auth.email)
+    .bind(now)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    tx.commit().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let app = App {
+        id,
+        name: payload.name,
+        app_key,
+        description,
+        created_at: now,
+    };
+
+    Ok((StatusCode::CREATED, Json(crate::routes::apps::CreateAppResponse::from(app))))
+}
+
+// ---------------------------------------------------------------------------
+// Team Member Management
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct InviteTeamMemberRequest {
+    pub email: String,
+    pub role: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateTeamMemberRequest {
+    pub role: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct TeamMemberRow {
+    pub id: Uuid,
+    pub app_id: Uuid,
+    pub email: String,
+    pub role: String,
+    pub invited_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// GET /v1/dev/feedback/apps/{app_id}/team-members
+/// List all team members of an app.
+async fn list_team_members(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path(app_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify the authenticated user is a member of this app
+    let is_member: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM team_members WHERE app_id = $1 AND email = $2)",
+    )
+    .bind(app_id)
+    .bind(&auth.email)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    if !is_member {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "you are not a member of this app".to_string(),
+            }),
+        ));
+    }
+
+    let rows: Vec<TeamMemberRow> = sqlx::query_as(
+        r#"SELECT id, app_id, email, role, invited_at
+           FROM team_members WHERE app_id = $1 ORDER BY invited_at ASC"#,
+    )
+    .bind(app_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    Ok(Json(rows))
+}
+
+/// POST /v1/dev/feedback/apps/{app_id}/team-members
+/// Invite a developer to join the app team.
+async fn invite_team_member(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path(app_id): Path<Uuid>,
+    Json(payload): Json<InviteTeamMemberRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify app exists
+    let app_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM apps WHERE id = $1)")
+        .bind(app_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    if !app_exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "app not found".to_string(),
+            }),
+        ));
+    }
+
+    // Verify the authenticated user is an admin or owner of this app
+    let user_role: Option<String> = sqlx::query_scalar(
+        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
+    )
+    .bind(app_id)
+    .bind(&auth.email)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let user_role = user_role.ok_or((
+        StatusCode::FORBIDDEN,
+        Json(ErrorResponse {
+            error: "you are not a member of this app".to_string(),
+        }),
+    ))?;
+
+    if user_role == "viewer" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "viewers cannot invite team members".to_string(),
+            }),
+        ));
+    }
+
+    // Validate role
+    let role = payload.role.unwrap_or_else(|| "developer".to_string());
+    if !["admin", "developer", "viewer"].contains(&role.as_str()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "role must be one of: admin, developer, viewer".to_string(),
+            }),
+        ));
+    }
+
+    // Cannot invite as owner
+    if role == "owner" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "cannot invite as owner. Use transfer ownership instead.".to_string(),
+            }),
+        ));
+    }
+
+    let id = Uuid::now_v7();
+    let now = Utc::now();
+
+    // Insert (upsert) the team member
+    sqlx::query(
+        r#"INSERT INTO team_members (id, app_id, email, role, invited_at)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (app_id, email) DO UPDATE SET role = $4"#,
+    )
+    .bind(id)
+    .bind(app_id)
+    .bind(&payload.email)
+    .bind(&role)
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let row: Option<TeamMemberRow> = sqlx::query_as(
+        r#"SELECT id, app_id, email, role, invited_at FROM team_members WHERE app_id = $1 AND email = $2"#,
+    )
+    .bind(app_id)
+    .bind(&payload.email)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some(m) => Ok((StatusCode::CREATED, Json(m))),
+        None => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "failed to fetch created team member".to_string(),
+            }),
+        )),
+    }
+}
+
+/// PATCH /v1/dev/feedback/apps/{app_id}/team-members/{member_id}
+/// Update a team member's role.
+async fn update_team_member(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path((app_id, member_id)): Path<(Uuid, Uuid)>,
+    Json(payload): Json<UpdateTeamMemberRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify the authenticated user is an admin or owner of this app
+    let user_role: Option<String> = sqlx::query_scalar(
+        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
+    )
+    .bind(app_id)
+    .bind(&auth.email)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let user_role = user_role.ok_or((
+        StatusCode::FORBIDDEN,
+        Json(ErrorResponse {
+            error: "you are not a member of this app".to_string(),
+        }),
+    ))?;
+
+    if user_role == "viewer" || user_role == "developer" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "only admins and owners can update team member roles".to_string(),
+            }),
+        ));
+    }
+
+    // Validate role
+    if !["admin", "developer", "viewer"].contains(&payload.role.as_str()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "role must be one of: admin, developer, viewer".to_string(),
+            }),
+        ));
+    }
+
+    let row: Option<TeamMemberRow> = sqlx::query_as(
+        r#"UPDATE team_members SET role = $1
+           WHERE id = $2 AND app_id = $3
+           RETURNING id, app_id, email, role, invited_at"#,
+    )
+    .bind(&payload.role)
+    .bind(member_id)
+    .bind(app_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    match row {
+        Some(m) => Ok(Json(m)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "team member not found".to_string(),
+            }),
+        )),
+    }
+}
+
+/// DELETE /v1/dev/feedback/apps/{app_id}/team-members/{member_id}
+/// Remove a team member from the app.
+async fn remove_team_member(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path((app_id, member_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify the authenticated user is an admin or owner of this app
+    let user_role: Option<String> = sqlx::query_scalar(
+        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
+    )
+    .bind(app_id)
+    .bind(&auth.email)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let user_role = user_role.ok_or((
+        StatusCode::FORBIDDEN,
+        Json(ErrorResponse {
+            error: "you are not a member of this app".to_string(),
+        }),
+    ))?;
+
+    if user_role == "viewer" || user_role == "developer" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "only admins and owners can remove team members".to_string(),
+            }),
+        ));
+    }
+
+    // Get the member being removed to check their role
+    let member_role: Option<String> = sqlx::query_scalar(
+        "SELECT role FROM team_members WHERE id = $1 AND app_id = $2",
+    )
+    .bind(member_id)
+    .bind(app_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let member_role = member_role.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "team member not found".to_string(),
+        }),
+    ))?;
+
+    // Cannot remove the owner
+    if member_role == "owner" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "cannot remove the owner. Transfer ownership first.".to_string(),
+            }),
+        ));
+    }
+
+    // Owners can only be removed by other owners
+    if member_role == "admin" && user_role != "owner" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "only owners can remove admins".to_string(),
+            }),
+        ));
+    }
+
+    sqlx::query("DELETE FROM team_members WHERE id = $1 AND app_id = $2")
+        .bind(member_id)
+        .bind(app_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({ "status": "removed", "id": member_id })))
+}
+
+// ---------------------------------------------------------------------------
 // Router factory (auth middleware applied externally)
 // ---------------------------------------------------------------------------
 
@@ -1602,5 +2055,10 @@ pub fn dev_routes(state: AppState) -> Router {
         .route("/v1/dev/response-templates", post(create_template))
         .route("/v1/dev/response-templates/{template_id}", patch(update_template))
         .route("/v1/dev/response-templates/{template_id}", delete(delete_template))
+        .route("/v1/dev/feedback/apps/{app_id}/team-members", get(list_team_members))
+        .route("/v1/dev/feedback/apps/{app_id}/team-members", post(invite_team_member))
+        .route("/v1/dev/feedback/apps/{app_id}/team-members/{member_id}", patch(update_team_member))
+        .route("/v1/dev/feedback/apps/{app_id}/team-members/{member_id}", delete(remove_team_member))
+        .route("/v1/dev/feedback/apps", post(dev_create_app))
         .with_state(state)
 }

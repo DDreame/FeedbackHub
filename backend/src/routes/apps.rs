@@ -23,10 +23,12 @@ pub struct ErrorResponse {
 pub struct CreateAppRequest {
     pub name: String,
     pub description: Option<String>,
+    /// The developer's email (optional). If provided, they will be added as owner.
+    pub developer_email: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-struct CreateAppResponse {
+pub struct CreateAppResponse {
     id: Uuid,
     app_key: String,
     name: String,
@@ -63,6 +65,16 @@ async fn create_app(
     let now = chrono::Utc::now();
     let description = payload.description.unwrap_or_default();
 
+    let mut tx = state.db.begin().await.map_err(|e| {
+        eprintln!("create_app tx error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
     sqlx::query(
         r#"INSERT INTO apps (id, name, app_key, description, created_at)
            VALUES ($1, $2, $3, $4, $5)"#,
@@ -72,7 +84,7 @@ async fn create_app(
     .bind(&app_key)
     .bind(&description)
     .bind(now)
-    .execute(&state.db)
+    .execute(&mut *tx)
     .await
     .map_err(|e| {
         eprintln!("create_app error: {}", e);
@@ -84,11 +96,45 @@ async fn create_app(
         )
     })?;
 
+    // If developer_email is provided, add them as owner of the app
+    if let Some(ref email) = payload.developer_email {
+        let member_id = Uuid::now_v7();
+        sqlx::query(
+            r#"INSERT INTO team_members (id, app_id, email, role, invited_at)
+               VALUES ($1, $2, $3, 'owner', $4)"#,
+        )
+        .bind(member_id)
+        .bind(id)
+        .bind(email)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| {
+            eprintln!("create_app add owner error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+    }
+
+    tx.commit().await.map_err(|e| {
+        eprintln!("create_app commit error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
     let app = App {
         id,
-        name: payload.name,
-        app_key,
-        description,
+        name: payload.name.clone(),
+        app_key: app_key.clone(),
+        description: description.clone(),
         created_at: now,
     };
 
