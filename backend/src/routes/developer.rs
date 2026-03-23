@@ -1,13 +1,14 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, Extension},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::email::{
@@ -19,7 +20,7 @@ use crate::model::thread::{
     MarkSpamRequest, MessageResponse, ThreadStatus, UpdateStatusRequest,
 };
 
-use super::feedback::{AppState, create_api_key, list_api_keys, revoke_api_key};
+use super::feedback::{AppState, create_api_key, list_api_keys, revoke_api_key, DevAuthInfo};
 
 // ---------------------------------------------------------------------------
 // Query types
@@ -1290,6 +1291,262 @@ async fn dev_merge_threads(
 }
 
 // ---------------------------------------------------------------------------
+// Response Templates CRUD
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateTemplateRequest {
+    pub title: String,
+    pub body: String,
+    pub category: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateTemplateRequest {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub category: Option<String>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct TemplateRow {
+    pub id: Uuid,
+    pub developer_email: String,
+    pub title: String,
+    pub body: String,
+    pub category: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// GET /v1/dev/response-templates
+async fn list_templates(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let rows: Vec<TemplateRow> = sqlx::query_as(
+        r#"SELECT id, developer_email, title, body, category, created_at, updated_at
+           FROM response_templates WHERE developer_email = $1 ORDER BY created_at DESC"#,
+    )
+    .bind(&auth.email)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    Ok(Json(rows))
+}
+
+/// POST /v1/dev/response-templates
+async fn create_template(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Json(payload): Json<CreateTemplateRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    if payload.title.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "title is required".to_string(),
+            }),
+        ));
+    }
+    if payload.body.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "body is required".to_string(),
+            }),
+        ));
+    }
+
+    let id = Uuid::now_v7();
+    let now = Utc::now();
+    let category = payload.category.unwrap_or_else(|| "general".to_string());
+
+    sqlx::query(
+        r#"INSERT INTO response_templates (id, developer_email, title, body, category, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+    )
+    .bind(id)
+    .bind(&auth.email)
+    .bind(&payload.title)
+    .bind(&payload.body)
+    .bind(&category)
+    .bind(now)
+    .bind(now)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let row: Option<TemplateRow> = sqlx::query_as(
+        r#"SELECT id, developer_email, title, body, category, created_at, updated_at
+           FROM response_templates WHERE id = $1"#,
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some(t) => Ok((StatusCode::CREATED, Json(t))),
+        None => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "failed to fetch created template".to_string(),
+            }),
+        )),
+    }
+}
+
+/// PATCH /v1/dev/response-templates/{template_id}
+async fn update_template(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path(template_id): Path<Uuid>,
+    Json(payload): Json<UpdateTemplateRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify ownership
+    let owner_email: Option<String> = sqlx::query_scalar(
+        "SELECT developer_email FROM response_templates WHERE id = $1",
+    )
+    .bind(template_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let owner_email = owner_email.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "template not found".to_string(),
+        }),
+    ))?;
+
+    if owner_email != auth.email {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "you do not have permission to update this template".to_string(),
+            }),
+        ));
+    }
+
+    let now = Utc::now();
+
+    // Build dynamic update
+    let title = payload.title.as_ref().filter(|t| !t.trim().is_empty());
+    let body = payload.body.as_ref().filter(|b| !b.trim().is_empty());
+    let category = payload.category.as_ref().filter(|c| !c.trim().is_empty());
+
+    if title.is_none() && body.is_none() && category.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "at least one field (title, body, category) must be provided".to_string(),
+            }),
+        ));
+    }
+
+    let row: Option<TemplateRow> = sqlx::query_as(
+        r#"UPDATE response_templates
+           SET title = COALESCE($1, title),
+               body = COALESCE($2, body),
+               category = COALESCE($3, category),
+               updated_at = $4
+           WHERE id = $5
+           RETURNING id, developer_email, title, body, category, created_at, updated_at"#,
+    )
+    .bind(&title)
+    .bind(&body)
+    .bind(&category)
+    .bind(now)
+    .bind(template_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    match row {
+        Some(t) => Ok(Json(t)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "template not found".to_string(),
+            }),
+        )),
+    }
+}
+
+/// DELETE /v1/dev/response-templates/{template_id}
+async fn delete_template(
+    State(state): State<AppState>,
+    Extension(auth): Extension<Arc<DevAuthInfo>>,
+    Path(template_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    // Verify ownership
+    let owner_email: Option<String> = sqlx::query_scalar(
+        "SELECT developer_email FROM response_templates WHERE id = $1",
+    )
+    .bind(template_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let owner_email = owner_email.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "template not found".to_string(),
+        }),
+    ))?;
+
+    if owner_email != auth.email {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "you do not have permission to delete this template".to_string(),
+            }),
+        ));
+    }
+
+    sqlx::query("DELETE FROM response_templates WHERE id = $1")
+        .bind(template_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({ "status": "deleted", "id": template_id })))
+}
+
+// ---------------------------------------------------------------------------
 // Router factory (auth middleware applied externally)
 // ---------------------------------------------------------------------------
 
@@ -1341,5 +1598,9 @@ pub fn dev_routes(state: AppState) -> Router {
         .route("/v1/dev/api-keys", post(create_api_key))
         .route("/v1/dev/api-keys", get(list_api_keys))
         .route("/v1/dev/api-keys/{key_id}", delete(revoke_api_key))
+        .route("/v1/dev/response-templates", get(list_templates))
+        .route("/v1/dev/response-templates", post(create_template))
+        .route("/v1/dev/response-templates/{template_id}", patch(update_template))
+        .route("/v1/dev/response-templates/{template_id}", delete(delete_template))
         .with_state(state)
 }
