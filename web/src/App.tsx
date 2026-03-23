@@ -5,6 +5,9 @@ import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
 import { ConsolePage } from './pages/ConsolePage'
+import { ConsoleInboxPage } from './pages/ConsoleInboxPage'
+import { ConsoleThreadPage } from './pages/ConsoleThreadPage'
+import { ConsoleAnalyticsPage } from './pages/ConsoleAnalyticsPage'
 import { AppsPage } from './pages/AppsPage'
 import { listApps, type AppResponse } from './services/api'
 import { toggleLanguage, getCurrentLanguage } from './i18n'
@@ -182,6 +185,9 @@ function App() {
         <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
         <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
         <Route path="/console" element={<ConsolePage />} />
+        <Route path="/console/inbox" element={<ConsoleInboxPage />} />
+        <Route path="/console/thread/:threadId" element={<ConsoleThreadPage />} />
+        <Route path="/console/analytics" element={<ConsoleAnalyticsPage />} />
         <Route path="/apps" element={<AppsPage />} />
       </Routes>
     </AppShell>

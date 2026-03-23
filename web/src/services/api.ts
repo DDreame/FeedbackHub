@@ -400,6 +400,79 @@ export async function addMessage(
 }
 
 // ---------------------------------------------------------------------------
+// Developer API types
+// ---------------------------------------------------------------------------
+
+export interface DevThreadContext {
+  app_version: string;
+  build_number?: string;
+  os_name: string;
+  os_version: string;
+  device_model: string;
+  locale?: string;
+  current_route: string;
+  captured_at: string;
+  reporter_account_id?: string;
+}
+
+export interface DeveloperThreadResponse {
+  id: string;
+  reporter_id: string;
+  reporter_contact?: string;
+  category: string;
+  status: string;
+  summary: string;
+  latest_public_message_at: string;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string;
+  context: DevThreadContext;
+  assignee_id?: string;
+  is_spam: boolean;
+  last_internal_note_at?: string;
+}
+
+export interface DevMessageResponse {
+  id: string;
+  thread_id: string;
+  author_type: 'reporter' | 'developer' | 'system';
+  body: string;
+  attachments?: string[];
+  created_at: string;
+  is_internal: boolean;
+}
+
+export interface DevPaginatedThreadsResponse {
+  threads: DeveloperThreadResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface DevThreadFilterParams {
+  status?: string;
+  category?: string;
+  assignee_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface UpdateStatusRequest {
+  status: string;
+}
+
+export interface AddReplyRequest {
+  body: string;
+  attachments?: string[];
+}
+
+export interface AddInternalNoteRequest {
+  body: string;
+  attachments?: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Developer API helper — wraps fetch with X-API-Key auth header
 // ---------------------------------------------------------------------------
 
@@ -409,4 +482,143 @@ export async function devApiFetch(url: string, options: RequestInit = {}): Promi
     ...buildDevAuthHeaders(),
   };
   return fetch(url, { ...options, headers });
+}
+
+const DEV_API_BASE = '/v1/dev';
+
+// List developer inbox threads with optional filters
+export async function devListThreads(
+  filters?: DevThreadFilterParams
+): Promise<DevPaginatedThreadsResponse> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.category) params.set('category', filters.category);
+  if (filters?.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
+
+  const url = `${DEV_API_BASE}/feedback/threads${params.size > 0 ? `?${params.toString()}` : ''}`;
+  const response = await devApiFetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch threads');
+  }
+
+  return response.json();
+}
+
+// Get a single developer thread
+export async function devGetThread(threadId: string): Promise<DeveloperThreadResponse> {
+  const response = await devApiFetch(`${DEV_API_BASE}/feedback/threads/${threadId}`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch thread');
+  }
+
+  return response.json();
+}
+
+// List messages in a developer thread (includes internal notes)
+export async function devListMessages(threadId: string): Promise<DevMessageResponse[]> {
+  const response = await devApiFetch(`${DEV_API_BASE}/feedback/threads/${threadId}/messages`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch messages');
+  }
+
+  return response.json();
+}
+
+// Add a developer reply to a thread
+export async function devAddReply(
+  threadId: string,
+  body: string,
+  attachments?: string[]
+): Promise<DevMessageResponse> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/reply`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, attachments } as AddReplyRequest),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to send reply');
+  }
+
+  return response.json();
+}
+
+// Update thread status
+export async function devUpdateStatus(
+  threadId: string,
+  status: string
+): Promise<DeveloperThreadResponse> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/status`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status } as UpdateStatusRequest),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update status');
+  }
+
+  return response.json();
+}
+
+// Add an internal note to a thread
+export async function devAddInternalNote(
+  threadId: string,
+  body: string,
+  attachments?: string[]
+): Promise<DevMessageResponse> {
+  const response = await devApiFetch(
+    `${DEV_API_BASE}/feedback/threads/${threadId}/internal-note`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, attachments } as AddInternalNoteRequest),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to add internal note');
+  }
+
+  return response.json();
+}
+
+// Bulk update status for multiple threads
+export async function devBulkUpdateStatus(
+  threadIds: string[],
+  status: string
+): Promise<{ updated: number; failed: string[] }> {
+  const results = await Promise.allSettled(
+    threadIds.map((id) => devUpdateStatus(id, status))
+  );
+
+  const failed = results
+    .map((r, i) => (r.status === 'rejected' ? threadIds[i] : null))
+    .filter((id): id is string => id !== null);
+
+  return {
+    updated: results.filter((r) => r.status === 'fulfilled').length,
+    failed,
+  };
 }
