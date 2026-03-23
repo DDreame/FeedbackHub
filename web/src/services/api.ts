@@ -32,6 +32,7 @@ export interface CreateThreadAtomicRequest {
   summary: string;
   context: ContextSnapshotInput;
   initial_message?: string;
+  attachments?: string[];
 }
 
 export interface CreateThreadAtomicResponse {
@@ -69,6 +70,7 @@ export interface MessageResponse {
   author_type: 'reporter' | 'developer' | 'system';
   body: string;
   created_at: string;
+  attachments?: string[];
 }
 
 export interface AddMessageRequest {
@@ -166,7 +168,8 @@ export async function createThreadAtomic(
   summary: string,
   initialMessage: string,
   reporterContact?: string,
-  context?: Partial<ContextSnapshotInput>
+  context?: Partial<ContextSnapshotInput>,
+  attachments?: string[]
 ): Promise<CreateThreadAtomicResponse> {
   const identity = getReporterIdentity();
   const response = await fetch(`${API_BASE}/feedback/threads/atomic`, {
@@ -181,6 +184,7 @@ export async function createThreadAtomic(
       category,
       summary,
       initial_message: initialMessage,
+      attachments: attachments || [],
       context: {
         app_version: context?.app_version || '1.0.0',
         build_number: context?.build_number,

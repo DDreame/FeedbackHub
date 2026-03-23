@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   createThreadAtomic,
@@ -12,6 +12,9 @@ const CATEGORIES = [
   { id: '想问一下', label: '想问一下', icon: '❓' },
   { id: '其他', label: '其他', icon: '📝' },
 ];
+
+const MAX_ATTACHMENTS = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 type Step = 'category' | 'form' | 'confirmation';
 
@@ -27,13 +30,53 @@ export function FeedbackSubmitPage() {
   const [content, setContent] = useState('');
   const [contact, setContact] = useState('');
   const [allowContact, setAllowContact] = useState(false);
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachmentErrors, setAttachmentErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setStep('form');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const errors: string[] = [];
+    const newAttachments: string[] = [];
+
+    for (const file of files) {
+      if (attachments.length + newAttachments.length >= MAX_ATTACHMENTS) {
+        errors.push(`最多只能上传 ${MAX_ATTACHMENTS} 张图片`);
+        break;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name} 超过 5MB 限制`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) {
+        errors.push(`${file.name} 不是图片文件`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        setAttachments((prev) => [...prev, base64]);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    setAttachmentErrors(errors);
+    // Reset file input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,7 +101,8 @@ export function FeedbackSubmitPage() {
         summary,
         body,
         allowContact ? contact : undefined,
-        { current_route: `/submit/${appKey}` }
+        { current_route: `/submit/${appKey}` },
+        attachments.length > 0 ? attachments : undefined
       );
 
       setSubmitResult({ threadId: result.thread_id });
@@ -144,6 +188,49 @@ export function FeedbackSubmitPage() {
                 required
               />
               <span className="form-hint">请尽量详细描述，这样可以帮助我们更好地解决问题</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">添加截图（可选，最多{MAX_ATTACHMENTS}张）</label>
+              <div className="attachment-upload-area">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileChange}
+                  className="attachment-input"
+                  id="attachment-input"
+                />
+                <label htmlFor="attachment-input" className="attachment-upload-label">
+                  <span className="attachment-upload-icon">📷</span>
+                  <span>点击或拖拽添加截图</span>
+                </label>
+                {attachments.length > 0 && (
+                  <div className="attachment-previews">
+                    {attachments.map((dataUrl, index) => (
+                      <div key={index} className="attachment-preview-item">
+                        <img src={dataUrl} alt={`附件 ${index + 1}`} className="attachment-thumbnail" />
+                        <button
+                          type="button"
+                          className="attachment-remove"
+                          onClick={() => removeAttachment(index)}
+                          aria-label="移除"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {attachmentErrors.length > 0 && (
+                <div className="attachment-errors">
+                  {attachmentErrors.map((err, i) => (
+                    <span key={i} className="attachment-error">{err}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="form-group">

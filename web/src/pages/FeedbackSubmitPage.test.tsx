@@ -80,6 +80,7 @@ describe('FeedbackSubmitPage', () => {
           expect.objectContaining({
             current_route: '/submit/demo-app',
           }),
+          undefined,
         )
       })
     })
@@ -107,6 +108,7 @@ describe('FeedbackSubmitPage', () => {
           expect.objectContaining({
             current_route: '/submit/demo-app',
           }),
+          undefined,
         )
       })
     })

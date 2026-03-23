@@ -157,6 +157,21 @@ export function FeedbackThreadPage() {
                       <span className="message-time">{formatDate(msg.created_at)}</span>
                     </div>
                     <div className="message-body">{msg.body}</div>
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="message-attachments">
+                        {msg.attachments.map((dataUrl, i) => (
+                          <a
+                            key={i}
+                            href={dataUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="message-attachment-thumb"
+                          >
+                            <img src={dataUrl} alt={`附件 ${i + 1}`} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
