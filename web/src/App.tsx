@@ -1,23 +1,39 @@
 import { useEffect, useState } from 'react';
 import { Link, Route, Routes, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
 import { listApps, type AppResponse } from './services/api'
+import { toggleLanguage, getCurrentLanguage } from './i18n'
 
 import './App.css'
 
 const THEME_KEY = 'feedback_theme';
 
 function ThemeToggle({ theme, onToggle }: { theme: string; onToggle: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       className="theme-toggle"
       onClick={onToggle}
-      aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
-      title={theme === 'dark' ? '浅色模式' : '暗色模式'}
+      aria-label={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
     >
       {theme === 'dark' ? '🌙' : '☀️'}
+    </button>
+  );
+}
+
+function LanguageToggle() {
+  const [lang, setLang] = useState(getCurrentLanguage);
+  return (
+    <button
+      className="theme-toggle"
+      onClick={() => { toggleLanguage(); setLang(getCurrentLanguage()); }}
+      title={lang === 'zh-CN' ? 'English' : '中文'}
+    >
+      {lang === 'zh-CN' ? 'EN' : '中'}
     </button>
   );
 }
@@ -26,6 +42,7 @@ function AppShell({ children, theme, onToggleTheme }: { children: React.ReactNod
   return (
     <>
       <div className="theme-toggle-wrapper">
+        <LanguageToggle />
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
       {children}
@@ -34,6 +51,7 @@ function AppShell({ children, theme, onToggleTheme }: { children: React.ReactNod
 }
 
 function HomePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [apps, setApps] = useState<AppResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,21 +62,20 @@ function HomePage() {
       .then((appList) => {
         setApps(appList);
         setLoading(false);
-        // If only one app, redirect directly to submit page
         if (appList.length === 1) {
           navigate(`/submit/${appList[0].app_key}`);
         }
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : '加载失败');
+        setError(err instanceof Error ? err.message : t('app.loadError'));
         setLoading(false);
       });
-  }, [navigate]);
+  }, [navigate, t]);
 
   if (loading) {
     return (
       <main className="shell">
-        <div className="loading">加载中...</div>
+        <div className="loading">{t('app.loading')}</div>
       </main>
     );
   }
@@ -71,31 +88,30 @@ function HomePage() {
     );
   }
 
-  // Multiple apps — show app selector
   if (apps.length > 1) {
     return (
       <main className="shell">
         <section className="hero">
-          <h1>FeedBack System</h1>
-          <p className="lead">请选择要提交反馈的应用</p>
+          <h1>{t('home.title')}</h1>
+          <p className="lead">{t('home.selectApp')}</p>
         </section>
-        <section className="surface-grid" aria-label="选择应用">
+        <section className="surface-grid" aria-label="select-app">
           {apps.map((app) => (
             <article key={app.id} className="surface-card">
               <h2>{app.name}</h2>
               {app.description && <p>{app.description}</p>}
               <Link className="route-link" to={`/submit/${app.app_key}`}>
-                打开反馈入口
+                {t('home.submitFeedback')}
               </Link>
             </article>
           ))}
         </section>
-        <section className="surface-grid" aria-label="功能入口">
+        <section className="surface-grid" aria-label="features">
           <article className="surface-card">
-            <h2>我的反馈</h2>
-            <p>查看我的反馈历史和处理进度。</p>
+            <h2>{t('home.myFeedback')}</h2>
+            <p>{t('home.historyDescription')}</p>
             <Link className="route-link" to="/history">
-              查看历史
+              {t('home.viewHistory')}
             </Link>
           </article>
         </section>
@@ -103,30 +119,27 @@ function HomePage() {
     );
   }
 
-  // Fallback: no apps or single app redirect handled above
   return (
     <main className="shell">
       <section className="hero">
-        <h1>FeedBack System</h1>
-        <p className="lead">
-          快速提交反馈，追踪处理进度。
-        </p>
+        <h1>{t('home.title')}</h1>
+        <p className="lead">{t('home.historyDescription')}</p>
       </section>
 
-      <section className="surface-grid" aria-label="功能入口">
+      <section className="surface-grid" aria-label="features">
         <article className="surface-card">
-          <h2>提交反馈</h2>
-          <p>提交反馈，报告问题或建议。</p>
+          <h2>{t('home.submitFeedback')}</h2>
+          <p>{t('home.submitDescription')}</p>
           <Link className="route-link" to="/submit/demo-app">
-            打开反馈入口
+            {t('home.submitFeedback')}
           </Link>
         </article>
 
         <article className="surface-card">
-          <h2>我的反馈</h2>
-          <p>查看我的反馈历史和处理进度。</p>
+          <h2>{t('home.myFeedback')}</h2>
+          <p>{t('home.historyDescription')}</p>
           <Link className="route-link" to="/history">
-            查看历史
+            {t('home.viewHistory')}
           </Link>
         </article>
       </section>
@@ -135,19 +148,18 @@ function HomePage() {
 }
 
 function ConsolePlaceholderPage() {
+  const { t } = useTranslation();
   return (
     <main className="shell">
       <section className="detail-card">
-        <h1>Developer Console</h1>
-        <p className="lead">
-          此功能正在开发中，敬请期待。
-        </p>
+        <h1>{t('console.title')}</h1>
+        <p className="lead">{t('console.description')}</p>
         <Link className="route-link" to="/">
-          返回首页
+          {t('console.backToHome')}
         </Link>
       </section>
     </main>
-  )
+  );
 }
 
 function App() {

@@ -6,7 +6,6 @@ import App from './App'
 
 describe('App', () => {
   beforeEach(() => {
-    // Mock fetch globally for all tests
     vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
       Promise.resolve({
         ok: true,
@@ -32,7 +31,7 @@ describe('App', () => {
       ).toBeInTheDocument()
     });
     expect(
-      screen.getByRole('link', { name: /打开反馈入口/i }),
+      screen.getByRole('link', { name: /提交反馈/i }),
     ).toHaveAttribute('href', '/submit/demo-app')
     expect(
       screen.getByRole('link', { name: /查看历史/i }),

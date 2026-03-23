@@ -1,29 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   listMyThreads,
   STATUS_LABELS,
   type ThreadResponse,
 } from '../services/api';
 import { formatRefNumber } from '../utils/formatRefNumber';
-
-const STATUS_OPTIONS = [
-  { value: '', label: '全部状态' },
-  { value: 'received', label: '已收到' },
-  { value: 'in_review', label: '处理中' },
-  { value: 'waiting_for_user', label: '待补充信息' },
-  { value: 'closed', label: '已关闭' },
-];
-
-
-const STATUS_MSGS: Record<string, string> = {
-  received: '✅ 感谢提交，您的反馈已收到',
-  in_review: '👀 开发者已查看您的反馈',
-  waiting_for_user: '💬 开发者已回复，等待您的操作',
-  closed: '✅ 此反馈已关闭，如有需要可继续回复',
-};
+import i18n from '../i18n';
 
 export function FeedbackHistoryPage() {
+  const { t } = useTranslation();
   const { appKey } = useParams<{ appKey?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -34,6 +21,21 @@ export function FeedbackHistoryPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+
+  const STATUS_OPTIONS = [
+    { value: '', label: t('history.allStatuses') },
+    { value: 'received', label: t('history.received') },
+    { value: 'in_review', label: t('history.inReview') },
+    { value: 'waiting_for_user', label: t('history.waitingForUser') },
+    { value: 'closed', label: t('history.closed') },
+  ];
+
+  const STATUS_MSGS: Record<string, string> = {
+    received: t('notification.receivedSubmitted'),
+    in_review: t('notification.reviewStarted'),
+    waiting_for_user: t('notification.waitingResponse'),
+    closed: t('notification.closed'),
+  };
 
   // Filter state from URL params
   const keyword = searchParams.get('keyword') || '';
@@ -61,7 +63,7 @@ export function FeedbackHistoryPage() {
         const key = `feedback_thread_status_${thread.id}`;
         const cached = localStorage.getItem(key);
         if (cached && cached !== thread.status) {
-          setGlobalNotification({ message: STATUS_MSGS[thread.status] || '状态已更新', status: thread.status });
+          setGlobalNotification({ message: STATUS_MSGS[thread.status] || t('notification.statusChanged', { status: thread.status }), status: thread.status });
           break;
         }
       }
@@ -74,11 +76,11 @@ export function FeedbackHistoryPage() {
       setTotal(data.total);
       setTotalPages(data.total_pages);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败');
+      setError(err instanceof Error ? err.message : t('app.loadError'));
     } finally {
       setIsLoading(false);
     }
-  }, [appKey, keyword, status, dateFrom, dateTo, page]);
+  }, [appKey, keyword, status, dateFrom, dateTo, page, t, STATUS_MSGS]);
 
   useEffect(() => {
     fetchThreads();
@@ -92,7 +94,7 @@ export function FeedbackHistoryPage() {
     } else {
       newParams.delete(key);
     }
-    newParams.set('page', '1'); // reset to page 1 on filter change
+    newParams.set('page', '1');
     setSearchParams(newParams);
   };
 
@@ -108,7 +110,7 @@ export function FeedbackHistoryPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -137,14 +139,14 @@ export function FeedbackHistoryPage() {
   return (
     <main className="shell">
       <section className="detail-card">
-        <span className="eyebrow">反馈历史</span>
-        <h1>我的反馈</h1>
+        <span className="eyebrow">{t('history.eyebrow')}</span>
+        <h1>{t('history.title')}</h1>
 
         {error && (
           <div className="error-message" role="alert">
             {error}
             <button onClick={fetchThreads} className="retry-btn">
-              重试
+              {t('history.retry')}
             </button>
           </div>
         )}
@@ -152,7 +154,7 @@ export function FeedbackHistoryPage() {
         {globalNotification && (
           <div className={`status-notification-banner banner-${globalNotification.status}`} role="alert">
             <span className="banner-message">{globalNotification.message}</span>
-            <button className="banner-dismiss" onClick={() => setGlobalNotification(null)} aria-label="关闭">✕</button>
+            <button className="banner-dismiss" onClick={() => setGlobalNotification(null)} aria-label={t('history.close')}>✕</button>
           </div>
         )}
 
@@ -162,7 +164,7 @@ export function FeedbackHistoryPage() {
             <input
               type="search"
               className="filter-keyword-input"
-              placeholder="搜索反馈内容..."
+              placeholder={t('history.searchPlaceholder')}
               value={keyword}
               onChange={(e) => updateFilter('keyword', e.target.value)}
             />
@@ -171,7 +173,7 @@ export function FeedbackHistoryPage() {
               onClick={() => setShowFilters(!showFilters)}
               aria-expanded={showFilters}
             >
-              {hasActiveFilters ? '筛选 🔽' : '筛选'}
+              {hasActiveFilters ? `${t('history.filter')} 🔽` : t('history.filter')}
             </button>
           </div>
 
@@ -179,7 +181,7 @@ export function FeedbackHistoryPage() {
             <div className="filter-bar-body">
               <div className="filter-row">
                 <label className="filter-label">
-                  状态
+                  {t('history.filterStatus')}
                   <select
                     className="filter-select"
                     value={status}
@@ -193,29 +195,29 @@ export function FeedbackHistoryPage() {
               </div>
               <div className="filter-row">
                 <label className="filter-label">
-                  创建时间
+                  {t('history.createdAt')}
                   <div className="filter-date-range">
                     <input
                       type="date"
                       className="filter-date-input"
                       value={dateFrom}
                       onChange={(e) => updateFilter('created_after', e.target.value)}
-                      placeholder="开始日期"
+                      placeholder={t('history.dateFrom')}
                     />
-                    <span className="filter-date-sep">至</span>
+                    <span className="filter-date-sep">{t('history.dateTo')}</span>
                     <input
                       type="date"
                       className="filter-date-input"
                       value={dateTo}
                       onChange={(e) => updateFilter('created_before', e.target.value)}
-                      placeholder="结束日期"
+                      placeholder={t('history.dateEnd')}
                     />
                   </div>
                 </label>
               </div>
               {hasActiveFilters && (
                 <button className="filter-clear-btn" onClick={clearFilters}>
-                  清除筛选
+                  {t('history.clearFilter')}
                 </button>
               )}
             </div>
@@ -226,20 +228,20 @@ export function FeedbackHistoryPage() {
         {!isLoading && !error && (
           <div className="history-results-info">
             {total > 0 ? (
-              <span>共 {total} 条反馈</span>
+              <span>{t('history.resultCount', { count: total })}</span>
             ) : (
-              <span>无符合条件的结果</span>
+              <span>{t('history.noResults')}</span>
             )}
           </div>
         )}
 
         {isLoading ? (
-          <div className="loading">加载中...</div>
+          <div className="loading">{t('app.loading')}</div>
         ) : threads.length === 0 && !hasActiveFilters ? (
           <div className="empty-state">
-            <p>您还没有提交过反馈</p>
+            <p>{t('history.noFeedback')}</p>
             <Link to={appKey ? `/submit/${appKey}` : '/submit/demo-app'} className="btn-primary">
-              提交反馈
+              {t('history.submitFeedback')}
             </Link>
           </div>
         ) : (
@@ -276,26 +278,26 @@ export function FeedbackHistoryPage() {
               className="pagination-btn"
               onClick={() => goToPage(page - 1)}
               disabled={page <= 1}
-              aria-label="上一页"
+              aria-label={t('history.previous')}
             >
-              ‹ 上一页
+              ‹ {t('history.previous')}
             </button>
             <span className="pagination-info">
-              第 {page} / {totalPages} 页
+              {t('history.pageInfo', { current: page, total: totalPages })}
             </span>
             <button
               className="pagination-btn"
               onClick={() => goToPage(page + 1)}
               disabled={page >= totalPages}
-              aria-label="下一页"
+              aria-label={t('history.next')}
             >
-              下一页 ›
+              {t('history.next')} ›
             </button>
           </div>
         )}
 
         <Link className="back-link" to="/">
-          ← 返回首页
+          ← {t('history.backToHome')}
         </Link>
       </section>
     </main>

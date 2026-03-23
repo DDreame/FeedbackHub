@@ -1,17 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   createThreadAtomic,
   STATUS_LABELS,
 } from '../services/api';
 import { formatRefNumber } from '../utils/formatRefNumber';
-
-const CATEGORIES = [
-  { id: '遇到问题', label: '遇到问题', icon: '❌' },
-  { id: '想提建议', label: '想提建议', icon: '💡' },
-  { id: '想问一下', label: '想问一下', icon: '❓' },
-  { id: '其他', label: '其他', icon: '📝' },
-];
 
 const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -23,7 +17,13 @@ interface SubmitResult {
   threadId: string;
 }
 
+interface Category {
+  id: string;
+  icon: string;
+}
+
 export function FeedbackSubmitPage() {
+  const { t } = useTranslation();
   const { appKey } = useParams<{ appKey: string }>();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('category');
@@ -38,6 +38,13 @@ export function FeedbackSubmitPage() {
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const CATEGORIES: (Category & { label: string })[] = [
+    { id: '遇到问题', icon: '❌', label: t('submit.encounteredProblem') },
+    { id: '想提建议', icon: '💡', label: t('submit.haveSuggestion') },
+    { id: '想问一下', icon: '❓', label: t('submit.haveQuestion') },
+    { id: '其他', icon: '📝', label: t('submit.other') },
+  ];
 
   // Unsaved changes guard
   const hasUnsavedContent = step === 'form' && (content.trim().length > 0 || attachments.length > 0);
@@ -78,15 +85,15 @@ export function FeedbackSubmitPage() {
 
     for (const file of files) {
       if (attachments.length + newAttachments.length >= MAX_ATTACHMENTS) {
-        errors.push(`最多只能上传 ${MAX_ATTACHMENTS} 张图片`);
+        errors.push(t('submit.maxAttachmentsError', { max: MAX_ATTACHMENTS }));
         break;
       }
       if (file.size > MAX_FILE_SIZE) {
-        errors.push(`${file.name} 超过 5MB 限制`);
+        errors.push(t('submit.fileSizeError', { name: file.name }));
         continue;
       }
       if (!file.type.startsWith('image/')) {
-        errors.push(`${file.name} 不是图片文件`);
+        errors.push(t('submit.notImageError', { name: file.name }));
         continue;
       }
       const reader = new FileReader();
@@ -98,7 +105,6 @@ export function FeedbackSubmitPage() {
     }
 
     setAttachmentErrors(errors);
-    // Reset file input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -111,17 +117,17 @@ export function FeedbackSubmitPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) {
-      setError('请输入反馈内容');
+      setError(t('submit.contentRequired'));
       return;
     }
     if (content.length > MAX_CONTENT_LENGTH) {
-      setError(`反馈内容不能超过 ${MAX_CONTENT_LENGTH} 字`);
+      setError(t('submit.contentTooLong', { max: MAX_CONTENT_LENGTH }));
       return;
     }
     if (allowContact && contact.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(contact.trim())) {
-        setContactError('请输入有效的邮箱地址');
+        setContactError(t('submit.invalidEmail'));
         return;
       }
     }
@@ -130,12 +136,10 @@ export function FeedbackSubmitPage() {
     setError(null);
 
     try {
-      // Auto-generate summary: first line, capped at 120 chars
       const body = content.trim();
       const firstLine = body.split('\n')[0];
       const summary = firstLine.length > 120 ? firstLine.slice(0, 117) + '...' : firstLine;
 
-      // Atomic: create thread + initial message in a single transaction
       const result = await createThreadAtomic(
         selectedCategory,
         summary,
@@ -148,7 +152,7 @@ export function FeedbackSubmitPage() {
       setSubmitResult({ threadId: result.thread_id });
       setStep('confirmation');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '提交失败，请重试');
+      setError(err instanceof Error ? err.message : t('submit.error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -165,16 +169,16 @@ export function FeedbackSubmitPage() {
   return (
     <main className="shell">
       <section className="detail-card">
-        <span className="eyebrow">反馈提交</span>
-        <h1>提交反馈</h1>
+        <span className="eyebrow">{t('submit.eyebrow')}</span>
+        <h1>{t('submit.title')}</h1>
 
         {/* Breadcrumb */}
         <div className="step-indicator">
-          <span className={step === 'category' ? 'active' : ''}>选择类型</span>
+          <span className={step === 'category' ? 'active' : ''}>{t('submit.stepCategory')}</span>
           <span className="arrow">›</span>
-          <span className={step === 'form' ? 'active' : ''}>填写内容</span>
+          <span className={step === 'form' ? 'active' : ''}>{t('submit.stepForm')}</span>
           <span className="arrow">›</span>
-          <span className={step === 'confirmation' ? 'active' : ''}>完成</span>
+          <span className={step === 'confirmation' ? 'active' : ''}>{t('submit.stepConfirm')}</span>
         </div>
 
         {error && (
@@ -186,7 +190,7 @@ export function FeedbackSubmitPage() {
         {/* Step 1: Category Selection */}
         {step === 'category' && (
           <div className="category-grid">
-            <p className="lead">请选择反馈类型：</p>
+            <p className="lead">{t('submit.selectCategory')}</p>
             <div className="category-options">
               {CATEGORIES.map((cat) => (
                 <button
@@ -207,7 +211,7 @@ export function FeedbackSubmitPage() {
         {step === 'form' && (
           <form onSubmit={handleSubmit} className="feedback-form">
             <div className="form-group">
-              <label className="form-label">反馈类型</label>
+              <label className="form-label">{t('submit.feedbackType')}</label>
               <div className="selected-category">
                 {CATEGORIES.find((c) => c.id === selectedCategory)?.icon}{' '}
                 {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
@@ -216,7 +220,7 @@ export function FeedbackSubmitPage() {
 
             <div className="form-group">
               <label htmlFor="content" className="form-label">
-                反馈内容 <span className="required">*</span>
+                {t('submit.contentLabel')} <span className="required">*</span>
               </label>
               <textarea
                 id="content"
@@ -228,12 +232,12 @@ export function FeedbackSubmitPage() {
                   setError(null);
                 }}
                 onKeyDown={handleContentKeyDown}
-                placeholder="请详细描述您的问题或建议..."
+                placeholder={t('submit.feedbackPlaceholder')}
                 rows={6}
                 required
               />
               <div className="form-textarea-footer">
-                <span className="form-hint">请尽量详细描述，这样可以帮助我们更好地解决问题 · Ctrl+Enter 快捷提交</span>
+                <span className="form-hint">{t('submit.contentHint')}</span>
                 <span className={`char-count ${content.length > MAX_CONTENT_LENGTH ? 'char-count-over' : ''}`}>
                   {content.length}/{MAX_CONTENT_LENGTH}
                 </span>
@@ -241,7 +245,7 @@ export function FeedbackSubmitPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">添加截图（可选，最多{MAX_ATTACHMENTS}张）</label>
+              <label className="form-label">{t('submit.attachScreenshotLabel')}</label>
               <div className="attachment-upload-area">
                 <input
                   ref={fileInputRef}
@@ -254,18 +258,18 @@ export function FeedbackSubmitPage() {
                 />
                 <label htmlFor="attachment-input" className="attachment-upload-label">
                   <span className="attachment-upload-icon">📷</span>
-                  <span>点击或拖拽添加截图</span>
+                  <span>{t('submit.attachScreenshot')}</span>
                 </label>
                 {attachments.length > 0 && (
                   <div className="attachment-previews">
                     {attachments.map((dataUrl, index) => (
                       <div key={index} className="attachment-preview-item">
-                        <img src={dataUrl} alt={`附件 ${index + 1}`} className="attachment-thumbnail" />
+                        <img src={dataUrl} alt={t('submit.attachmentAlt', { index: index + 1 })} className="attachment-thumbnail" />
                         <button
                           type="button"
                           className="attachment-remove"
                           onClick={() => removeAttachment(index)}
-                          aria-label="移除"
+                          aria-label={t('submit.remove')}
                         >
                           ✕
                         </button>
@@ -290,7 +294,7 @@ export function FeedbackSubmitPage() {
                   checked={allowContact}
                   onChange={(e) => setAllowContact(e.target.checked)}
                 />
-                <span>允许开发者联系我</span>
+                <span>{t('submit.allowContact')}</span>
               </label>
               {allowContact && (
                 <div className="contact-input-group">
@@ -303,7 +307,7 @@ export function FeedbackSubmitPage() {
                       setContactError(null);
                       setError(null);
                     }}
-                    placeholder="请输入邮箱地址"
+                    placeholder={t('submit.contactPlaceholder')}
                   />
                   {contactError && (
                     <span className="contact-error">{contactError}</span>
@@ -314,10 +318,10 @@ export function FeedbackSubmitPage() {
 
             <div className="form-actions">
               <button type="button" className="btn-secondary" onClick={handleBack}>
-                上一步
+                {t('submit.back')}
               </button>
               <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                {isSubmitting ? '提交中...' : '提交反馈'}
+                {isSubmitting ? t('submit.submitting') : t('submit.submit')}
               </button>
             </div>
           </form>
@@ -327,25 +331,25 @@ export function FeedbackSubmitPage() {
         {step === 'confirmation' && submitResult && (
           <div className="confirmation-page">
             <div className="confirmation-icon">✅</div>
-            <h2>感谢您的反馈</h2>
-            <p className="lead">我们已收到您的反馈，会尽快处理。</p>
+            <h2>{t('submit.confirmTitle')}</h2>
+            <p className="lead">{t('submit.confirmDescription')}</p>
 
             <div className="confirmation-details">
               <div className="detail-row">
-                <span className="detail-label">反馈编号</span>
+                <span className="detail-label">{t('submit.referenceNumber')}</span>
                 <span className="detail-value" title={submitResult.threadId}>
                   {formatRefNumber(submitResult.threadId)}
                 </span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">类型</span>
+                <span className="detail-label">{t('submit.type')}</span>
                 <span className="detail-value">
                   {CATEGORIES.find((c) => c.id === selectedCategory)?.icon}{' '}
                   {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
                 </span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">状态</span>
+                <span className="detail-label">{t('submit.status')}</span>
                 <span className="detail-value status-badge received">
                   {STATUS_LABELS['received']}
                 </span>
@@ -353,22 +357,22 @@ export function FeedbackSubmitPage() {
             </div>
 
             <p className="confirmation-hint">
-              您可以在「我的反馈」页面查看处理进度。
+              {t('submit.confirmHint')}
             </p>
 
             <div className="form-actions">
               <Link to="/" className="btn-secondary">
-                返回首页
+                {t('submit.backToHome')}
               </Link>
               <Link to={`/feedback/${submitResult.threadId}`} className="btn-primary">
-                查看详情
+                {t('submit.viewDetails')}
               </Link>
             </div>
           </div>
         )}
 
         <Link className="back-link" to="/">
-          ← 返回首页
+          ← {t('submit.backToHome')}
         </Link>
       </section>
     </main>

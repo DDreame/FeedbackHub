@@ -1,9 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { I18nextProvider } from 'react-i18next'
 
 import { FeedbackSubmitPage } from './FeedbackSubmitPage'
 import * as api from '../services/api'
+import i18n from '../i18n'
 
 // Mock the API module
 vi.mock('../services/api', () => ({
@@ -19,19 +21,22 @@ vi.mock('../services/api', () => ({
 const mockCreateThreadAtomic = api.createThreadAtomic as ReturnType<typeof vi.fn>
 
 describe('FeedbackSubmitPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    await i18n.changeLanguage('zh-CN')
   })
 
   const renderSubmitPage = () => {
     render(
-      <MemoryRouter initialEntries={['/submit/demo-app']}>
-        <Routes>
-          <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
-          <Route path="/" element={<div>Home</div>} />
-          <Route path="/feedback/:threadId" element={<div>Thread Detail</div>} />
-        </Routes>
-      </MemoryRouter>,
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={['/submit/demo-app']}>
+          <Routes>
+            <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
+            <Route path="/" element={<div>Home</div>} />
+            <Route path="/feedback/:threadId" element={<div>Thread Detail</div>} />
+          </Routes>
+        </MemoryRouter>
+      </I18nextProvider>,
     )
   }
 
