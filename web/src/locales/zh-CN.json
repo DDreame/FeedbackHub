@@ -19,9 +19,17 @@
     "viewHistory": "查看历史"
   },
   "console": {
+    "eyebrow": "开发者控制台",
     "title": "Developer Console",
     "description": "此功能正在开发中。",
-    "backToHome": "返回首页"
+    "backToHome": "返回首页",
+    "apiKeyLabel": "API Key",
+    "apiKeyPlaceholder": "请输入您的 API Key",
+    "apiKeySave": "保存并继续",
+    "apiKeyRevoke": "注销 API Key",
+    "apiKeySaved": "API Key 已配置",
+    "apiKeyError": "请输入有效的 API Key",
+    "apiKeyHint": "您的 API Key 用于访问开发者 API。请妥善保管，不要泄露。"
   },
   "history": {
     "eyebrow": "反馈历史",

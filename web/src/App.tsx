@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
+import { ConsolePage } from './pages/ConsolePage'
 import { listApps, type AppResponse } from './services/api'
 import { toggleLanguage, getCurrentLanguage } from './i18n'
 
@@ -147,21 +148,6 @@ function HomePage() {
   );
 }
 
-function ConsolePlaceholderPage() {
-  const { t } = useTranslation();
-  return (
-    <main className="shell">
-      <section className="detail-card">
-        <h1>{t('console.title')}</h1>
-        <p className="lead">{t('console.description')}</p>
-        <Link className="route-link" to="/">
-          {t('console.backToHome')}
-        </Link>
-      </section>
-    </main>
-  );
-}
-
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem(THEME_KEY);
@@ -187,7 +173,7 @@ function App() {
         <Route path="/history" element={<FeedbackHistoryPage />} />
         <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
         <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
-        <Route path="/console" element={<ConsolePlaceholderPage />} />
+        <Route path="/console" element={<ConsolePage />} />
       </Routes>
     </AppShell>
   );

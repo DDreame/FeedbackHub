@@ -123,6 +123,30 @@ function buildReporterHeaders(): Record<string, string> {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Developer API Key Authentication
+// ---------------------------------------------------------------------------
+
+const DEV_API_KEY_STORAGE = 'feedback_dev_api_key';
+
+export function getDevApiKey(): string | null {
+  return localStorage.getItem(DEV_API_KEY_STORAGE);
+}
+
+export function setDevApiKey(key: string): void {
+  localStorage.setItem(DEV_API_KEY_STORAGE, key);
+}
+
+export function clearDevApiKey(): void {
+  localStorage.removeItem(DEV_API_KEY_STORAGE);
+}
+
+function buildDevAuthHeaders(): Record<string, string> {
+  const key = getDevApiKey();
+  if (!key) return {};
+  return { 'X-API-Key': key };
+}
+
 // Create a new feedback thread
 export async function createThread(
   category: string,
@@ -345,4 +369,16 @@ export async function addMessage(
   }
 
   return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Developer API helper — wraps fetch with X-API-Key auth header
+// ---------------------------------------------------------------------------
+
+export async function devApiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = {
+    ...options.headers,
+    ...buildDevAuthHeaders(),
+  };
+  return fetch(url, { ...options, headers });
 }

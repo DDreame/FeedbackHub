@@ -91,6 +91,13 @@ vi.mock('react-i18next', () => {
       'console.title': 'Developer Console',
       'console.description': '此功能正在开发中。',
       'console.backToHome': '返回首页',
+      'console.apiKeyLabel': 'API Key',
+      'console.apiKeyPlaceholder': '请输入您的 API Key',
+      'console.apiKeySave': '保存并继续',
+      'console.apiKeyRevoke': '注销 API Key',
+      'console.apiKeySaved': 'API Key 已配置',
+      'console.apiKeyError': '请输入有效的 API Key',
+      'console.apiKeyHint': '您的 API Key 用于访问开发者 API。请妥善保管，不要泄露。',
       // theme
       'theme.light': '浅色',
       'theme.dark': '深色',

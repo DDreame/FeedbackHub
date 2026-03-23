@@ -79,7 +79,7 @@ describe('App', () => {
       }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/此功能正在开发中/i),
+      screen.getByRole('textbox', { name: /api key/i }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: /返回首页/i }),

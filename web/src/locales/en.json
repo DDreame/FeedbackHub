@@ -19,9 +19,17 @@
     "viewHistory": "View History"
   },
   "console": {
+    "eyebrow": "Developer Console",
     "title": "Developer Console",
     "description": "This feature is under development.",
-    "backToHome": "Back to Home"
+    "backToHome": "Back to Home",
+    "apiKeyLabel": "API Key",
+    "apiKeyPlaceholder": "Enter your API Key",
+    "apiKeySave": "Save and Continue",
+    "apiKeyRevoke": "Revoke API Key",
+    "apiKeySaved": "API Key configured",
+    "apiKeyError": "Please enter a valid API Key",
+    "apiKeyHint": "Your API Key is used to access the developer API. Keep it secure and do not share it."
   },
   "history": {
     "eyebrow": "Feedback History",
