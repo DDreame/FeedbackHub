@@ -30,6 +30,12 @@ export function ConsolePage() {
               <Link to="/console/analytics" className="btn-secondary">
                 {t('console.goToAnalytics')}
               </Link>
+              <Link to="/console/templates" className="btn-secondary">
+                {t('console.goToTemplates')}
+              </Link>
+              <Link to="/console/api-keys" className="btn-secondary">
+                {t('console.goToApiKeys')}
+              </Link>
               <button className="btn-danger" onClick={() => { clearDevApiKey(); setSaved(false); }}>
                 {t('console.apiKeyRevoke')}
               </button>
