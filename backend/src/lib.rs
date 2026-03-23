@@ -9,6 +9,7 @@ use routes::apps::app_routes;
 use routes::developer::dev_routes;
 use routes::feedback::{AppState, RateLimiter, api_key_auth, feedback_routes};
 use routes::project::project_routes;
+use routes::tags::tag_routes;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -32,10 +33,11 @@ pub fn app_with_state(state: AppState) -> Router {
     let state2 = state.clone();
     let state3 = state.clone();
     let state4 = state.clone();
-    let _state5 = state.clone();
+    let state5 = state.clone();
     let health = Router::new().route("/api/health", get(health));
     // Dev routes protected by API key auth middleware
     let dev_api = dev_routes(state.clone())
+        .merge(tag_routes(state5))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth));
     health
         .merge(app_routes(state))
