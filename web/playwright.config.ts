@@ -15,7 +15,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        addInitScript: async ({ page }) => {
+          await page.evaluateOnNewDocument(() => {
+            localStorage.setItem('feedback_reporter_id', '00000000-0000-0000-0000-000000000001');
+          });
+        },
+      },
     },
   ],
   webServer: [
