@@ -26,6 +26,7 @@ export function FeedbackThreadPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [expandedAttachment, setExpandedAttachment] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { notification, dismiss } = useStatusNotification(threadId || '', thread?.status || '');
@@ -44,7 +45,7 @@ export function FeedbackThreadPage() {
       setThread(threadData);
       setMessages(messagesData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败');
+      setError(err instanceof Error ? err.message : t('thread.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +80,7 @@ export function FeedbackThreadPage() {
       const updatedThread = await getThread(threadId);
       setThread(updatedThread);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发送失败');
+      setError(err instanceof Error ? err.message : t('thread.sendError'));
     } finally {
       setIsSending(false);
     }
@@ -131,13 +132,13 @@ export function FeedbackThreadPage() {
   return (
     <main className="shell">
       <section className="detail-card thread-detail">
-        <span className="eyebrow">反馈详情</span>
+        <span className="eyebrow">{t('thread.eyebrow')}</span>
 
         {error && (
           <div className="error-message" role="alert">
             {error}
             <button onClick={fetchData} className="retry-btn">
-              重试
+              {t('thread.retry')}
             </button>
           </div>
         )}
@@ -153,7 +154,7 @@ export function FeedbackThreadPage() {
         )}
 
         {isLoading ? (
-          <div className="loading">加载中...</div>
+          <div className="loading">{t('thread.loading')}</div>
         ) : thread ? (
           <>
             {/* Thread Header */}
@@ -212,7 +213,7 @@ export function FeedbackThreadPage() {
             {/* Messages */}
             <div className="messages-container">
               {messages.length === 0 ? (
-                <div className="no-messages">暂无消息记录</div>
+                <div className="no-messages">{t('thread.noMessages')}</div>
               ) : (
                 messages.map((msg) => (
                   <div
@@ -225,7 +226,7 @@ export function FeedbackThreadPage() {
                   >
                     <div className="message-header">
                       <span className="message-author">
-                        {msg.author_type === 'developer' ? '👨‍💻 开发者' : '👤 您'}
+                        {msg.author_type === 'developer' ? t('thread.developer') : t('thread.you')}
                       </span>
                       <span className="message-time">{formatDate(msg.created_at)}</span>
                     </div>
@@ -233,15 +234,14 @@ export function FeedbackThreadPage() {
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="message-attachments">
                         {msg.attachments.map((dataUrl, i) => (
-                          <a
+                          <button
+                            type="button"
                             key={i}
-                            href={dataUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="message-attachment-thumb"
+                            onClick={() => setExpandedAttachment(i)}
                           >
-                            <img src={dataUrl} alt={`附件 ${i + 1}`} />
-                          </a>
+                            <img src={dataUrl} alt={t('thread.attachmentAlt', { index: i + 1 })} />
+                          </button>
                         ))}
                       </div>
                     )}
@@ -257,7 +257,7 @@ export function FeedbackThreadPage() {
                 className="reply-textarea"
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="输入您的回复..."
+                placeholder={t('thread.replyPlaceholder')}
                 rows={3}
                 disabled={isSending}
               />
@@ -266,16 +266,16 @@ export function FeedbackThreadPage() {
                 className="btn-primary"
                 disabled={!replyContent.trim() || isSending}
               >
-                {isSending ? '发送中...' : '发送'}
+                {isSending ? t('thread.sending') : t('thread.send')}
               </button>
             </form>
           </>
         ) : (
-          <div className="error-message">未找到反馈记录</div>
+          <div className="error-message">{t('thread.noFeedback')}</div>
         )}
 
         <Link className="back-link" to="/history">
-          ← 返回反馈列表
+          {t('thread.backToHistory')}
         </Link>
       </section>
     </main>
