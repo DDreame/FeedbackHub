@@ -326,7 +326,7 @@ async fn dev_get_thread(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -514,7 +514,7 @@ async fn dev_update_status(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1
         "#,
     )

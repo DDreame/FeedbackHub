@@ -2,6 +2,7 @@ pub mod db;
 pub mod email;
 pub mod model;
 pub mod routes;
+pub mod webhook;
 
 use axum::{Json, Router, middleware, routing::get};
 use routes::apps::app_routes;
@@ -17,9 +18,13 @@ struct HealthResponse {
 }
 
 pub fn app() -> Router {
+    let rate_limit: usize = std::env::var("RATE_LIMIT_PER_MINUTE")
+        .unwrap_or_else(|_| "10".to_string())
+        .parse()
+        .unwrap_or(10);
     app_with_state(AppState {
         db: create_pool_from_env(),
-        rate_limiter: RateLimiter::new(10, 60), // 10 requests per 60 seconds
+        rate_limiter: RateLimiter::new(rate_limit, 60),
     })
 }
 

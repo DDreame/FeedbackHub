@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, post},
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -511,7 +511,7 @@ async fn delete_my_thread(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -564,7 +564,7 @@ async fn delete_my_thread(
     }
 
     let now = Utc::now();
-    sqlx::query(r#"UPDATE feedback_threads SET status = 'deleted', updated_at = $1 WHERE id = $2"#)
+    sqlx::query(r#"UPDATE feedback_threads SET status = 'deleted', updated_at = $1, deleted_at = $1 WHERE id = $2"#)
         .bind(now)
         .bind(thread_id)
         .execute(&state.db)
@@ -585,7 +585,7 @@ async fn delete_my_thread(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -644,7 +644,7 @@ async fn add_message(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1
         "#,
     )
@@ -743,7 +743,7 @@ async fn list_my_messages(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1"#,
     )
     .bind(thread_id)
@@ -864,7 +864,7 @@ async fn check_reporter_unread(
                context_app_version, context_build_number, context_os_name,
                context_os_version, context_device_model, context_locale,
                context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
+               assignee_id, is_spam, last_internal_note_at, deleted_at
         FROM feedback_threads WHERE id = $1"#,
     )
     .bind(thread_id)
@@ -945,6 +945,160 @@ async fn check_reporter_unread(
     }))
 }
 
+/// POST /v1/feedback/threads/{thread_id}/recover
+/// Reporter recovers their soft-deleted thread within 7-day recovery window
+async fn recover_my_thread(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    // Fetch the thread
+    let thread: Option<FeedbackThread> = sqlx::query_as(
+        r#"
+        SELECT id, reporter_id, reporter_contact, category, status, summary,
+               latest_public_message_at, created_at, updated_at, closed_at,
+               context_app_version, context_build_number, context_os_name,
+               context_os_version, context_device_model, context_locale,
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at, deleted_at
+        FROM feedback_threads WHERE id = $1
+        "#,
+    )
+    .bind(thread_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let thread = thread.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
+    ))?;
+
+    // Verify ownership
+    if thread.reporter_id != reporter_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "not your thread".to_string(),
+            }),
+        ));
+    }
+
+    // Verify thread is deleted
+    if thread.status != "deleted" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "thread is not deleted".to_string(),
+            }),
+        ));
+    }
+
+    // Check recovery window (7 days)
+    if let Some(deleted_at) = thread.deleted_at {
+        let window = chrono::Duration::days(7);
+        if Utc::now() > deleted_at + window {
+            return Err((
+                StatusCode::GONE,
+                Json(ErrorResponse {
+                    error: "recovery window has expired (7 days)".to_string(),
+                }),
+            ));
+        }
+    } else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "thread has no deletion record".to_string(),
+            }),
+        ));
+    }
+
+    // Recover: set status back to 'received', clear deleted_at
+    let now = Utc::now();
+    sqlx::query(
+        r#"UPDATE feedback_threads SET status = 'received', updated_at = $1, deleted_at = NULL WHERE id = $2"#,
+    )
+    .bind(now)
+    .bind(thread_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    Ok(Json(serde_json::json!({ "message": "thread recovered successfully" })))
+}
+
+/// GET /v1/public/threads/:thread_id/status
+/// Public endpoint to check thread status without authentication (#t85)
+async fn get_public_thread_status(
+    State(state): State<AppState>,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    #[derive(Serialize)]
+    struct PublicStatusResponse {
+        thread_id: Uuid,
+        status: String,
+        category: String,
+        latest_public_message_at: DateTime<Utc>,
+    }
+
+    let row: Option<(String, String, DateTime<Utc>)> = sqlx::query_as(
+        r#"
+        SELECT status, category, latest_public_message_at
+        FROM feedback_threads
+        WHERE id = $1 AND status != 'deleted'
+        "#,
+    )
+    .bind(thread_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let row = row.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
+    ))?;
+
+    Ok(Json(PublicStatusResponse {
+        thread_id,
+        status: row.0,
+        category: row.1,
+        latest_public_message_at: row.2,
+    }))
+}
+
 // ---------------------------------------------------------------------------
 // Routes registration
 // ---------------------------------------------------------------------------
@@ -968,6 +1122,15 @@ pub fn thread_routes(state: AppState) -> Router {
         .route(
             "/v1/feedback/threads/{thread_id}/unread",
             get(check_reporter_unread),
+        )
+        .route(
+            "/v1/feedback/threads/{thread_id}/recover",
+            post(recover_my_thread),
+        )
+        // Public routes (no auth required)
+        .route(
+            "/v1/public/threads/{thread_id}/status",
+            get(get_public_thread_status),
         )
         .with_state(state)
 }

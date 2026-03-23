@@ -97,6 +97,7 @@ pub struct ContextSnapshot {
 pub struct FeedbackThread {
     pub id: Uuid,
     pub reporter_id: Uuid,
+    pub app_id: Option<Uuid>,
     pub reporter_contact: Option<String>,
     pub category: String,
     pub status: String,
@@ -121,6 +122,8 @@ pub struct FeedbackThread {
     pub is_spam: bool,
     // Unread tracking for internal notes
     pub last_internal_note_at: Option<DateTime<Utc>>,
+    // Soft delete recovery tracking
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl FeedbackThread {
