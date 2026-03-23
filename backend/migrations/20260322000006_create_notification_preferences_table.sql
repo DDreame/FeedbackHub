@@ -13,3 +13,4 @@ CREATE TABLE notification_preferences (
         ON DELETE CASCADE
 );
 CREATE INDEX idx_notification_preferences_reporter ON notification_preferences(reporter_id);
+CREATE UNIQUE INDEX idx_notification_preferences_reporter_unique ON notification_preferences(reporter_id);

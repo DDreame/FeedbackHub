@@ -147,7 +147,8 @@ export function FeedbackSubmitPage() {
         body,
         allowContact ? contact : undefined,
         { current_route: `/submit/${appKey}` },
-        attachments.length > 0 ? attachments : undefined
+        attachments.length > 0 ? attachments : undefined,
+        allowContact ? contact : undefined
       );
 
       setSubmitResult({ threadId: result.thread_id });

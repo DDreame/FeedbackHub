@@ -77,16 +77,15 @@ describe('FeedbackSubmitPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
 
       await waitFor(() => {
-        expect(mockCreateThreadAtomic).toHaveBeenCalledWith(
-          '遇到问题',
-          '这是一个测试反馈内容',
-          '这是一个测试反馈内容',
-          undefined,
-          expect.objectContaining({
-            current_route: '/submit/demo-app',
-          }),
-          undefined,
-        )
+        expect(mockCreateThreadAtomic).toHaveBeenCalledTimes(1)
+        const call = mockCreateThreadAtomic.mock.calls[0]
+        expect(call[0]).toBe('遇到问题')
+        expect(call[1]).toBe('这是一个测试反馈内容')
+        expect(call[2]).toBe('这是一个测试反馈内容')
+        expect(call[3]).toBeUndefined()
+        expect(call[4]).toMatchObject({ current_route: '/submit/demo-app' })
+        expect(call[5]).toBeUndefined()
+        expect(call[6]).toBeUndefined()
       })
     })
 
@@ -105,16 +104,15 @@ describe('FeedbackSubmitPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
 
       await waitFor(() => {
-        expect(mockCreateThreadAtomic).toHaveBeenCalledWith(
-          '遇到问题',
-          '第一行是摘要',
-          multiLineContent,
-          undefined,
-          expect.objectContaining({
-            current_route: '/submit/demo-app',
-          }),
-          undefined,
-        )
+        expect(mockCreateThreadAtomic).toHaveBeenCalledTimes(1)
+        const call = mockCreateThreadAtomic.mock.calls[0]
+        expect(call[0]).toBe('遇到问题')
+        expect(call[1]).toBe('第一行是摘要')
+        expect(call[2]).toBe(multiLineContent)
+        expect(call[3]).toBeUndefined()
+        expect(call[4]).toMatchObject({ current_route: '/submit/demo-app' })
+        expect(call[5]).toBeUndefined()
+        expect(call[6]).toBeUndefined()
       })
     })
 

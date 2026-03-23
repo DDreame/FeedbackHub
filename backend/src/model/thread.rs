@@ -174,6 +174,17 @@ pub struct CreateThreadAtomicRequest {
     pub initial_message: Option<String>,
     /// Base64 data URLs of attached images.
     pub attachments: Option<Vec<String>>,
+    /// Notification preferences. If provided, creates notification_preferences record.
+    pub notification_preferences: Option<NotificationPreferencesInput>,
+}
+
+/// Notification preferences input from frontend.
+#[derive(Debug, Deserialize)]
+pub struct NotificationPreferencesInput {
+    pub email: String,
+    pub notify_on_reply: bool,
+    pub notify_on_status_change: bool,
+    pub notify_on_close: bool,
 }
 
 /// Response for atomic create-thread-with-message operation.
