@@ -1039,6 +1039,34 @@
   border-color: var(--accent);
 }
 
+/* Theme Toggle */
+.theme-toggle-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -1rem;
+}
+
+.theme-toggle {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(64, 51, 41, 0.12);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+[data-theme="dark"] .theme-toggle {
+  background: rgba(26, 41, 57, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Form Polish */
 .form-textarea-footer {
   display: flex;

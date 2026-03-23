@@ -25,6 +25,26 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+[data-theme="dark"] {
+  --canvas: #0f1419;
+  --surface: rgba(26, 41, 57, 0.88);
+  --accent: #e07050;
+  --ink-strong: #e8e3dc;
+  --ink-muted: #9aa5b1;
+  --ink-soft: #7c8a99;
+  color: var(--ink-strong);
+  background:
+    radial-gradient(circle at top left, rgba(203, 91, 47, 0.12), transparent 24rem),
+    radial-gradient(circle at bottom right, rgba(29, 42, 52, 0.18), transparent 24rem),
+    var(--canvas);
+}
+
+[data-theme="dark"] body::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
 * {
   box-sizing: border-box;
 }

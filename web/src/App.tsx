@@ -7,6 +7,32 @@ import { listApps, type AppResponse } from './services/api'
 
 import './App.css'
 
+const THEME_KEY = 'feedback_theme';
+
+function ThemeToggle({ theme, onToggle }: { theme: string; onToggle: () => void }) {
+  return (
+    <button
+      className="theme-toggle"
+      onClick={onToggle}
+      aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
+      title={theme === 'dark' ? '浅色模式' : '暗色模式'}
+    >
+      {theme === 'dark' ? '🌙' : '☀️'}
+    </button>
+  );
+}
+
+function AppShell({ children, theme, onToggleTheme }: { children: React.ReactNode; theme: string; onToggleTheme: () => void }) {
+  return (
+    <>
+      <div className="theme-toggle-wrapper">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+      </div>
+      {children}
+    </>
+  );
+}
+
 function HomePage() {
   const navigate = useNavigate();
   const [apps, setApps] = useState<AppResponse[]>([]);
@@ -125,16 +151,34 @@ function ConsolePlaceholderPage() {
 }
 
 function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
-      <Route path="/history" element={<FeedbackHistoryPage />} />
-      <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
-      <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
-      <Route path="/console" element={<ConsolePlaceholderPage />} />
-    </Routes>
-  )
+    <AppShell theme={theme} onToggleTheme={toggleTheme}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/submit/:appKey" element={<FeedbackSubmitPage />} />
+        <Route path="/history" element={<FeedbackHistoryPage />} />
+        <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
+        <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
+        <Route path="/console" element={<ConsolePlaceholderPage />} />
+      </Routes>
+    </AppShell>
+  );
 }
 
 export default App
