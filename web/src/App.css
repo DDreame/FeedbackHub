@@ -1001,6 +1001,23 @@
   object-fit: cover;
 }
 
+.attachment-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(64, 51, 41, 0.06);
+  border: 1px solid rgba(64, 51, 41, 0.1);
+  cursor: pointer;
+}
+
+.attachment-file-icon:hover {
+  border-color: var(--accent);
+}
+
+.file-icon-emoji {
+  font-size: 2rem;
+}
+
 .attachment-remove {
   position: absolute;
   top: 2px;
@@ -1062,6 +1079,19 @@
 }
 
 .message-attachment-thumb:hover {
+  border-color: var(--accent);
+}
+
+.message-attachment-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(64, 51, 41, 0.06);
+  border: 1px solid rgba(64, 51, 41, 0.1);
+  cursor: pointer;
+}
+
+.message-attachment-file:hover {
   border-color: var(--accent);
 }
 

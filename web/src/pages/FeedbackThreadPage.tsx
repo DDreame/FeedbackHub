@@ -238,16 +238,40 @@ export function FeedbackThreadPage() {
                     <div className="message-body">{msg.body}</div>
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="message-attachments">
-                        {msg.attachments.map((dataUrl, i) => (
-                          <button
-                            type="button"
-                            key={i}
-                            className="message-attachment-thumb"
-                            onClick={() => setExpandedAttachment(dataUrl)}
-                          >
-                            <img src={dataUrl} alt={t('thread.attachmentAlt', { index: i + 1 })} />
-                          </button>
-                        ))}
+                        {msg.attachments.map((dataUrl, i) => {
+                          const isImage = dataUrl.startsWith('data:image/');
+                          if (isImage) {
+                            return (
+                              <button
+                                type="button"
+                                key={i}
+                                className="message-attachment-thumb"
+                                onClick={() => setExpandedAttachment(dataUrl)}
+                              >
+                                <img src={dataUrl} alt={t('thread.attachmentAlt', { index: i + 1 })} />
+                              </button>
+                            );
+                          } else {
+                            return (
+                              <button
+                                type="button"
+                                key={i}
+                                className="message-attachment-thumb message-attachment-file"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = dataUrl;
+                                  link.download = `${t('thread.attachmentAlt', { index: i + 1 })}`;
+                                  link.click();
+                                }}
+                                title={dataUrl.startsWith('data:application/pdf') ? 'PDF' : dataUrl.includes('zip') ? 'ZIP' : 'DOCX'}
+                              >
+                                <span className="file-icon-emoji">
+                                  {dataUrl.startsWith('data:application/pdf') ? '📄' : dataUrl.includes('zip') ? '📦' : '📝'}
+                                </span>
+                              </button>
+                            );
+                          }
+                        })}
                       </div>
                     )}
                   </div>
@@ -284,7 +308,7 @@ export function FeedbackThreadPage() {
         </Link>
 
         {/* Expanded image modal */}
-        {expandedAttachment && (
+        {expandedAttachment && expandedAttachment.startsWith('data:image/') && (
           <div className="modal-overlay" onClick={() => setExpandedAttachment(null)}>
             <div className="image-preview-modal" onClick={(e) => e.stopPropagation()}>
               <img

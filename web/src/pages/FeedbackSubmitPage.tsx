@@ -11,6 +11,10 @@ const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_CONTENT_LENGTH = 2000;
 
+function isImageDataUrl(dataUrl: string): boolean {
+  return dataUrl.startsWith('data:image/');
+}
+
 type Step = 'category' | 'form' | 'confirmation';
 
 interface SubmitResult {
@@ -93,8 +97,15 @@ export function FeedbackSubmitPage() {
         errors.push(t('submit.fileSizeError', { name: file.name }));
         continue;
       }
-      if (!file.type.startsWith('image/')) {
-        errors.push(t('submit.notImageError', { name: file.name }));
+      const allowedTypes = [
+        'image/',
+        'application/pdf',
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+      if (!allowedTypes.some((t) => file.type.startsWith(t) || file.type === t)) {
+        errors.push(t('submit.unsupportedFileTypeError', { name: file.name }));
         continue;
       }
       const reader = new FileReader();
@@ -252,7 +263,7 @@ export function FeedbackSubmitPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.pdf,.zip,.docx,application/pdf,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   multiple
                   onChange={handleFileChange}
                   className="attachment-input"
@@ -264,25 +275,46 @@ export function FeedbackSubmitPage() {
                 </label>
                 {attachments.length > 0 && (
                   <div className="attachment-previews">
-                    {attachments.map((dataUrl, index) => (
-                      <div key={index} className="attachment-preview-item">
-                        <img
-                          src={dataUrl}
-                          alt={t('submit.attachmentAlt', { index: index + 1 })}
-                          className="attachment-thumbnail"
-                          onClick={() => setExpandedAttachment(index)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <button
-                          type="button"
-                          className="attachment-remove"
-                          onClick={() => removeAttachment(index)}
-                          aria-label={t('submit.remove')}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                    {attachments.map((dataUrl, index) => {
+                      const isImage = isImageDataUrl(dataUrl);
+                      return (
+                        <div key={index} className="attachment-preview-item">
+                          {isImage ? (
+                            <img
+                              src={dataUrl}
+                              alt={t('submit.attachmentAlt', { index: index + 1 })}
+                              className="attachment-thumbnail"
+                              onClick={() => setExpandedAttachment(index)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="attachment-thumbnail attachment-file-icon"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = dataUrl;
+                                link.download = `${t('submit.attachmentAlt', { index: index + 1 })}`;
+                                link.click();
+                              }}
+                              title={dataUrl.startsWith('data:application/pdf') ? 'PDF' : dataUrl.includes('zip') ? 'ZIP' : 'DOCX'}
+                            >
+                              <span className="file-icon-emoji">
+                                {dataUrl.startsWith('data:application/pdf') ? '📄' : dataUrl.includes('zip') ? '📦' : '📝'}
+                              </span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="attachment-remove"
+                            onClick={() => removeAttachment(index)}
+                            aria-label={t('submit.remove')}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -384,7 +416,7 @@ export function FeedbackSubmitPage() {
         </Link>
 
         {/* Expanded image modal */}
-        {expandedAttachment !== null && attachments[expandedAttachment] && (
+        {expandedAttachment !== null && attachments[expandedAttachment] && isImageDataUrl(attachments[expandedAttachment]) && (
           <div className="modal-overlay" onClick={() => setExpandedAttachment(null)}>
             <div className="image-preview-modal" onClick={(e) => e.stopPropagation()}>
               <img
