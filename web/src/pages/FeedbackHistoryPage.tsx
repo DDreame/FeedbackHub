@@ -7,6 +7,7 @@ import {
   type ThreadResponse,
 } from '../services/api';
 import { formatRefNumber } from '../utils/formatRefNumber';
+import { highlightKeyword } from '../utils/highlightKeyword';
 import i18n from '../i18n';
 
 export function FeedbackHistoryPage() {
@@ -259,7 +260,9 @@ export function FeedbackHistoryPage() {
                   <span className="thread-category">{thread.category}</span>
                   <span className="thread-ref">{formatRefNumber(thread.id)}</span>
                 </div>
-                <p className="thread-summary">{thread.summary}</p>
+                <p className="thread-summary">
+                  {highlightKeyword(thread.summary, keyword)}
+                </p>
                 <div className="thread-meta">
                   <span className="thread-date">{formatDate(thread.created_at)}</span>
                   <span className="thread-context">

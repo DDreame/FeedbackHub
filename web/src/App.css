@@ -496,6 +496,13 @@
   line-height: 1.4;
 }
 
+.thread-summary mark {
+  background-color: var(--accent);
+  color: var(--canvas);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
 .thread-meta {
   display: flex;
   gap: 1rem;
