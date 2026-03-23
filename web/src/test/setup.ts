@@ -93,6 +93,11 @@ vi.mock('react-i18next', () => {
       'thread.deleteSuccess': '反馈已删除',
       'thread.deleteError': '删除失败，请重试',
       'thread.cancel': '取消',
+      'thread.statusReceived': '已收到',
+      'thread.statusInReview': '处理中',
+      'thread.statusWaitingForUser': '待补充信息',
+      'thread.statusClosed': '已关闭',
+      'thread.statusDeleted': '已删除',
       // home
       'home.title': 'FeedBack System',
       'home.historyDescription': '查看您提交的所有反馈记录',
@@ -130,6 +135,7 @@ vi.mock('react-i18next', () => {
       'apps.submitFeedback': '提交反馈',
       'apps.viewHistory': '查看历史',
       'apps.backToHome': '返回首页',
+      'apps.createSuccess': '应用创建成功',
       // theme
       'theme.light': '浅色',
       'theme.dark': '深色',

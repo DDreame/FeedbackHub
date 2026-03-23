@@ -1089,8 +1089,8 @@
 }
 
 [data-theme="dark"] .theme-toggle {
-  background: rgba(26, 41, 57, 0.9);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 20, 25, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 [data-theme="dark"] .form-input,

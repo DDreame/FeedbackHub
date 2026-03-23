@@ -6,7 +6,6 @@ import {
   listMessages,
   addMessage,
   deleteThread,
-  STATUS_LABELS,
   type ThreadResponse,
   type MessageResponse,
 } from '../services/api';
@@ -26,7 +25,7 @@ export function FeedbackThreadPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [expandedAttachment, setExpandedAttachment] = useState<number | null>(null);
+  const [expandedAttachment, setExpandedAttachment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { notification, dismiss } = useStatusNotification(threadId || '', thread?.status || '');
@@ -161,7 +160,13 @@ export function FeedbackThreadPage() {
             <div className="thread-header-info">
               <div className="thread-status-row">
                 <span className={`status-badge ${getStatusClass(thread.status)}`}>
-                  {STATUS_LABELS[thread.status] || thread.status}
+                  {t({
+                    received: 'thread.statusReceived',
+                    in_review: 'thread.statusInReview',
+                    waiting_for_user: 'thread.statusWaitingForUser',
+                    closed: 'thread.statusClosed',
+                    deleted: 'thread.statusDeleted',
+                  }[thread.status] ?? 'thread.statusReceived')}
                 </span>
                 <span className="thread-category">{thread.category}</span>
                 {thread.status !== 'deleted' && (
@@ -238,7 +243,7 @@ export function FeedbackThreadPage() {
                             type="button"
                             key={i}
                             className="message-attachment-thumb"
-                            onClick={() => setExpandedAttachment(i)}
+                            onClick={() => setExpandedAttachment(dataUrl)}
                           >
                             <img src={dataUrl} alt={t('thread.attachmentAlt', { index: i + 1 })} />
                           </button>
@@ -277,6 +282,26 @@ export function FeedbackThreadPage() {
         <Link className="back-link" to="/history">
           {t('thread.backToHistory')}
         </Link>
+
+        {/* Expanded image modal */}
+        {expandedAttachment && (
+          <div className="modal-overlay" onClick={() => setExpandedAttachment(null)}>
+            <div className="image-preview-modal" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={expandedAttachment}
+                alt={t('thread.attachmentAlt', { index: 1 })}
+                className="image-preview-full"
+              />
+              <button
+                className="image-preview-close"
+                onClick={() => setExpandedAttachment(null)}
+                aria-label={t('history.close')}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

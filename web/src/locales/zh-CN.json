@@ -48,7 +48,8 @@
     "cancel": "取消",
     "submitFeedback": "提交反馈",
     "viewHistory": "查看历史",
-    "backToHome": "返回首页"
+    "backToHome": "返回首页",
+    "createSuccess": "应用创建成功"
   },
   "history": {
     "eyebrow": "反馈历史",
@@ -146,6 +147,11 @@
     "deleteConfirmMessage": "确定要删除这条反馈吗？删除后将无法恢复。",
     "deleteSuccess": "反馈已删除",
     "deleteError": "删除失败，请重试",
-    "cancel": "取消"
+    "cancel": "取消",
+    "statusReceived": "已收到",
+    "statusInReview": "处理中",
+    "statusWaitingForUser": "待补充信息",
+    "statusClosed": "已关闭",
+    "statusDeleted": "已删除"
   }
 }

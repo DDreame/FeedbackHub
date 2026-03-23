@@ -13,6 +13,14 @@ export function AppsPage() {
   const [appDescription, setAppDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   useEffect(() => {
     listApps()
@@ -33,6 +41,7 @@ export function AppsPage() {
       setAppName('');
       setAppDescription('');
       setShowForm(false);
+      setToast({ message: t('apps.createSuccess'), type: 'success' });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : t('app.loadError'));
     } finally {
@@ -45,6 +54,12 @@ export function AppsPage() {
       <section className="detail-card">
         <span className="eyebrow">{t('apps.eyebrow')}</span>
         <h1>{t('apps.title')}</h1>
+
+        {toast && (
+          <div className={`toast toast-${toast.type}`} role="alert">
+            {toast.message}
+          </div>
+        )}
 
         {error && (
           <div className="error-message" role="alert">

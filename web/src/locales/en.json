@@ -48,7 +48,8 @@
     "cancel": "Cancel",
     "submitFeedback": "Submit Feedback",
     "viewHistory": "View History",
-    "backToHome": "Back to Home"
+    "backToHome": "Back to Home",
+    "createSuccess": "App created successfully"
   },
   "history": {
     "eyebrow": "Feedback History",
@@ -146,6 +147,11 @@
     "deleteConfirmMessage": "Are you sure you want to delete this feedback? It cannot be recovered after deletion.",
     "deleteSuccess": "Feedback deleted",
     "deleteError": "Delete failed, please try again",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "statusReceived": "Received",
+    "statusInReview": "In Review",
+    "statusWaitingForUser": "Waiting for you",
+    "statusClosed": "Closed",
+    "statusDeleted": "Deleted"
   }
 }
