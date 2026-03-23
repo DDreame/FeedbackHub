@@ -1,8 +1,16 @@
 import { chromium } from '@playwright/test';
 
+const REPORTER_ID = '00000000-0000-0000-0000-000000000001';
+
 async function globalSetup() {
   const browser = await chromium.launch();
   const context = await browser.newContext();
+
+  // Inject the reporter ID into localStorage for all test contexts
+  await context.addInitScript((reporterId) => {
+    localStorage.setItem('feedback_reporter_id', reporterId);
+  }, REPORTER_ID);
+
   const page = await context.newPage();
 
   // Wait for backend to be ready
@@ -31,24 +39,22 @@ async function globalSetup() {
     // App might already exist — ignore
   }
 
-  // Generate a stable reporter ID for E2E tests
-  const reporterId = 'e2e-reporter-' + '12345678';
-
   // Create 25 feedback threads for pagination test (need >20 for pagination to show)
   for (let i = 0; i < 25; i++) {
     try {
       await page.request.post('http://localhost:3000/v1/feedback/threads/atomic', {
-        headers: { 'X-Reporter-Id': reporterId },
+        headers: { 'X-Reporter-Id': REPORTER_ID },
         json: {
+          reporter_id: REPORTER_ID,
           category: '遇到问题',
           summary: `E2E Test Feedback ${i + 1}`,
           initial_message: `This is test feedback number ${i + 1} for E2E testing purposes.`,
-          app_key: appKey,
           context: {
             app_version: '1.0.0',
-            os_name: 'Test',
-            os_version: '1.0',
+            os_name: 'Test OS',
+            os_version: '1.0.0',
             device_model: 'Test Device',
+            locale: null,
             current_route: '/history',
           },
         }
@@ -57,6 +63,9 @@ async function globalSetup() {
       // Some may fail due to timing — ignore
     }
   }
+
+  // Save storage state with reporter ID in localStorage
+  await context.storageState({ path: './e2e/.auth/user.json' });
 
   await browser.close();
 }
