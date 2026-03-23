@@ -168,6 +168,15 @@ pub struct CreateThreadRequest {
     pub context: ContextSnapshotInput,
 }
 
+/// Input for anonymous thread creation (no reporter identity required).
+#[derive(Debug, Deserialize)]
+pub struct CreateThreadAnonymousRequest {
+    pub reporter_contact: Option<String>,
+    pub category: String,
+    pub summary: String,
+    pub context: ContextSnapshotInput,
+}
+
 /// Input for atomic create-thread-with-message operation.
 #[derive(Debug, Deserialize)]
 pub struct CreateThreadAtomicRequest {

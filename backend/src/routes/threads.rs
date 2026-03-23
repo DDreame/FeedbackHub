@@ -11,9 +11,9 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::model::thread::{
-    AddMessageRequest, ContextSnapshot, CreateThreadAtomicRequest, CreateThreadAtomicResponse,
-    CreateThreadRequest, CreateThreadResponse, FeedbackMessage, FeedbackThread, MessageResponse,
-    ThreadResponse, ThreadStatus,
+    AddMessageRequest, ContextSnapshot, CreateThreadAnonymousRequest, CreateThreadAtomicRequest,
+    CreateThreadAtomicResponse, CreateThreadRequest, CreateThreadResponse, FeedbackMessage,
+    FeedbackThread, MessageResponse, ThreadResponse, ThreadStatus,
 };
 
 #[allow(unused_imports)]
@@ -315,6 +315,84 @@ async fn create_thread_atomic(
             message_id,
         }),
     ))
+}
+
+/// POST /v1/feedback/threads/anonymous
+/// Creates an anonymous feedback thread without requiring reporter identity.
+async fn create_thread_anonymous(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateThreadAnonymousRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let id = Uuid::now_v7();
+    let anonymous_reporter_id = Uuid::now_v7(); // Synthetic ID for anonymous threads
+    let reference_number = generate_reference_number();
+    let now = Utc::now();
+    let context = ContextSnapshot {
+        app_version: payload.context.app_version,
+        build_number: payload.context.build_number,
+        os_name: payload.context.os_name,
+        os_version: payload.context.os_version,
+        device_model: payload.context.device_model,
+        locale: payload.context.locale,
+        current_route: payload.context.current_route,
+        captured_at: now,
+        reporter_account_id: payload.context.reporter_account_id,
+    };
+
+    sqlx::query(
+        r#"
+        INSERT INTO feedback_threads (
+            id, reporter_id, reporter_contact, category, status, summary,
+            latest_public_message_at, created_at, updated_at, closed_at,
+            context_app_version, context_build_number, context_os_name,
+            context_os_version, context_device_model, context_locale,
+            context_current_route, context_captured_at, context_reporter_account_id,
+            reference_number
+        ) VALUES ($1, $2, $3, $4, 'received', $5, $6, $6, $6, NULL, $7, $8, $9, $10, $11, $12, $13, $6, $14, $15)
+        "#,
+    )
+    .bind(id)
+    .bind(anonymous_reporter_id)
+    .bind(&payload.reporter_contact)
+    .bind(&payload.category)
+    .bind(&payload.summary)
+    .bind(now)
+    .bind(&context.app_version)
+    .bind(&context.build_number)
+    .bind(&context.os_name)
+    .bind(&context.os_version)
+    .bind(&context.device_model)
+    .bind(&context.locale)
+    .bind(&context.current_route)
+    .bind(&context.reporter_account_id)
+    .bind(&reference_number)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+
+    #[derive(Serialize)]
+    struct AnonymousThreadResponse {
+        id: Uuid,
+        reference_number: String,
+    }
+
+    Ok(Json(AnonymousThreadResponse { id, reference_number }))
+}
+
+fn generate_reference_number() -> String {
+    // Generate human-friendly reference like "FB-XXXXXX"
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    Uuid::now_v7().hash(&mut hasher);
+    let hash = hasher.finish();
+    let suffix: String = (0..6)
+        .map(|i| {
+            let c = b'A' + ((hash >> (i * 5)) % 26) as u8;
+            c as char
+        })
+        .collect();
+    format!("FB-{}", suffix)
 }
 
 /// GET /v1/feedback/threads
@@ -1141,6 +1219,11 @@ pub fn thread_routes(state: AppState) -> Router {
         .route(
             "/v1/public/threads/{thread_id}/status",
             get(get_public_thread_status),
+        )
+        // Anonymous feedback (no auth required)
+        .route(
+            "/v1/feedback/threads/anonymous",
+            post(create_thread_anonymous),
         )
         .with_state(state)
 }
