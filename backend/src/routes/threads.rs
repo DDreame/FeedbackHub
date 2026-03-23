@@ -280,12 +280,17 @@ async fn list_my_threads(
     // Count total matching rows
     let total: i64 = sqlx::query_scalar(
         r#"
-        SELECT COUNT(*) FROM feedback_threads
-        WHERE reporter_id = $1
-          AND ($2::varchar IS NULL OR status = $2)
-          AND ($3::timestamptz IS NULL OR created_at >= $3)
-          AND ($4::timestamptz IS NULL OR created_at <= $4)
-          AND ($5::varchar IS NULL OR summary ILIKE $5)
+        SELECT COUNT(*) FROM feedback_threads t
+        WHERE t.reporter_id = $1
+          AND ($2::varchar IS NULL OR t.status = $2)
+          AND ($3::timestamptz IS NULL OR t.created_at >= $3)
+          AND ($4::timestamptz IS NULL OR t.created_at <= $4)
+          AND ($5::varchar IS NULL
+               OR t.summary ILIKE $5
+               OR EXISTS (
+                   SELECT 1 FROM feedback_messages m
+                   WHERE m.thread_id = t.id AND m.body ILIKE $5 AND m.is_internal = FALSE
+               ))
         "#,
     )
     .bind(reporter_id)
@@ -308,19 +313,24 @@ async fn list_my_threads(
 
     let rows: Vec<FeedbackThread> = sqlx::query_as(
         r#"
-        SELECT id, reporter_id, reporter_contact, category, status, summary,
-               latest_public_message_at, created_at, updated_at, closed_at,
-               context_app_version, context_build_number, context_os_name,
-               context_os_version, context_device_model, context_locale,
-               context_current_route, context_captured_at, context_reporter_account_id,
-               assignee_id, is_spam, last_internal_note_at
-        FROM feedback_threads
-        WHERE reporter_id = $1
-          AND ($2::varchar IS NULL OR status = $2)
-          AND ($3::timestamptz IS NULL OR created_at >= $3)
-          AND ($4::timestamptz IS NULL OR created_at <= $4)
-          AND ($5::varchar IS NULL OR summary ILIKE $5)
-        ORDER BY latest_public_message_at DESC
+        SELECT t.id, t.reporter_id, t.reporter_contact, t.category, t.status, t.summary,
+               t.latest_public_message_at, t.created_at, t.updated_at, t.closed_at,
+               t.context_app_version, t.context_build_number, t.context_os_name,
+               t.context_os_version, t.context_device_model, t.context_locale,
+               t.context_current_route, t.context_captured_at, t.context_reporter_account_id,
+               t.assignee_id, t.is_spam, t.last_internal_note_at
+        FROM feedback_threads t
+        WHERE t.reporter_id = $1
+          AND ($2::varchar IS NULL OR t.status = $2)
+          AND ($3::timestamptz IS NULL OR t.created_at >= $3)
+          AND ($4::timestamptz IS NULL OR t.created_at <= $4)
+          AND ($5::varchar IS NULL
+               OR t.summary ILIKE $5
+               OR EXISTS (
+                   SELECT 1 FROM feedback_messages m
+                   WHERE m.thread_id = t.id AND m.body ILIKE $5 AND m.is_internal = FALSE
+               ))
+        ORDER BY t.latest_public_message_at DESC
         LIMIT $6 OFFSET $7
         "#,
     )
@@ -409,6 +419,77 @@ async fn get_my_thread(
             }),
         )),
     }
+}
+
+/// DELETE /v1/feedback/threads/:thread_id
+/// Reporter deletes their own thread (and all messages via CASCADE)
+async fn delete_my_thread(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(thread_id): Path<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    // Verify thread ownership
+    let thread: Option<FeedbackThread> = sqlx::query_as(
+        r#"
+        SELECT id, reporter_id, reporter_contact, category, status, summary,
+               latest_public_message_at, created_at, updated_at, closed_at,
+               context_app_version, context_build_number, context_os_name,
+               context_os_version, context_device_model, context_locale,
+               context_current_route, context_captured_at, context_reporter_account_id,
+               assignee_id, is_spam, last_internal_note_at
+        FROM feedback_threads WHERE id = $1
+        "#,
+    )
+    .bind(thread_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let thread = thread.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
+    ))?;
+
+    if thread.reporter_id != reporter_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "not your thread".to_string(),
+            }),
+        ));
+    }
+
+    // Delete thread (messages are CASCADE deleted)
+    sqlx::query(r#"DELETE FROM feedback_threads WHERE id = $1"#)
+        .bind(thread_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// POST /v1/feedback/threads/:thread_id/messages
@@ -1343,6 +1424,7 @@ pub fn thread_routes(state: AppState) -> Router {
         .route("/v1/feedback/threads/atomic", post(create_thread_atomic))
         .route("/v1/feedback/threads", get(list_my_threads))
         .route("/v1/feedback/threads/{thread_id}", get(get_my_thread))
+        .route("/v1/feedback/threads/{thread_id}", delete(delete_my_thread))
         .route(
             "/v1/feedback/threads/{thread_id}/messages",
             post(add_message),
