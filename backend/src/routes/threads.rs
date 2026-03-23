@@ -253,6 +253,7 @@ async fn create_thread_atomic(
 async fn list_my_threads(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<ListThreadsQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let reporter_id = extract_reporter_id(&headers).ok_or((
         StatusCode::UNAUTHORIZED,
@@ -260,6 +261,50 @@ async fn list_my_threads(
             error: "X-Reporter-Id header required".to_string(),
         }),
     ))?;
+
+    let per_page = query.page_size.unwrap_or(20).min(100);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * per_page;
+
+    // Validate status value to prevent SQL injection
+    let status_value = query.status.as_ref().and_then(|s| {
+        if ["received", "in_review", "waiting_for_user", "closed"].contains(&s.as_str()) {
+            Some(s.clone())
+        } else {
+            None
+        }
+    });
+
+    let keyword_pattern = query.keyword.as_ref().map(|k| format!("%{}%", k));
+
+    // Count total matching rows
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) FROM feedback_threads
+        WHERE reporter_id = $1
+          AND ($2::varchar IS NULL OR status = $2)
+          AND ($3::timestamptz IS NULL OR created_at >= $3)
+          AND ($4::timestamptz IS NULL OR created_at <= $4)
+          AND ($5::varchar IS NULL OR summary ILIKE $5)
+        "#,
+    )
+    .bind(reporter_id)
+    .bind(&status_value)
+    .bind(query.created_after)
+    .bind(query.created_before)
+    .bind(&keyword_pattern)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let total_pages = (total as f64 / per_page as f64).ceil() as i64;
 
     let rows: Vec<FeedbackThread> = sqlx::query_as(
         r#"
@@ -271,10 +316,21 @@ async fn list_my_threads(
                assignee_id, is_spam, last_internal_note_at
         FROM feedback_threads
         WHERE reporter_id = $1
+          AND ($2::varchar IS NULL OR status = $2)
+          AND ($3::timestamptz IS NULL OR created_at >= $3)
+          AND ($4::timestamptz IS NULL OR created_at <= $4)
+          AND ($5::varchar IS NULL OR summary ILIKE $5)
         ORDER BY latest_public_message_at DESC
+        LIMIT $6 OFFSET $7
         "#,
     )
     .bind(reporter_id)
+    .bind(&status_value)
+    .bind(query.created_after)
+    .bind(query.created_before)
+    .bind(&keyword_pattern)
+    .bind(per_page)
+    .bind(offset)
     .fetch_all(&state.db)
     .await
     .map_err(|e| {
@@ -286,8 +342,14 @@ async fn list_my_threads(
         )
     })?;
 
-    let response: Vec<ThreadResponse> = rows.into_iter().map(ThreadResponse::from).collect();
-    Ok(Json(response))
+    let threads: Vec<ThreadResponse> = rows.into_iter().map(ThreadResponse::from).collect();
+    Ok(Json(PaginatedThreadsResponse {
+        threads,
+        total,
+        page,
+        page_size: per_page,
+        total_pages,
+    }))
 }
 
 /// GET /v1/feedback/threads/:thread_id
@@ -557,6 +619,27 @@ pub struct InboxQuery {
     pub assignee_id: Option<Uuid>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+}
+
+/// Query parameters for reporter thread listing
+#[derive(Debug, Deserialize, Default)]
+pub struct ListThreadsQuery {
+    pub keyword: Option<String>,
+    pub status: Option<String>,
+    pub created_after: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_before: Option<chrono::DateTime<chrono::Utc>>,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+}
+
+/// Paginated response for thread listing
+#[derive(Debug, Serialize)]
+pub struct PaginatedThreadsResponse {
+    pub threads: Vec<ThreadResponse>,
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
+    pub total_pages: i64,
 }
 
 /// GET /v1/dev/feedback/threads
