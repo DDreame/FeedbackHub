@@ -70,6 +70,7 @@
     "submitFeedback": "Submit Feedback",
     "backToHome": "Back to Home",
     "noFeedback": "You haven't submitted any feedback yet",
+    "noFeedbackHint": "Found an issue or have a suggestion? Submit your feedback now.",
     "noResults": "No matching results",
     "resultCount": "{{count}} feedback items",
     "pageInfo": "Page {{current}} of {{total}}",

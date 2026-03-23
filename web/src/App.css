@@ -518,6 +518,25 @@
   color: var(--ink-muted);
 }
 
+.empty-state-illustration {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.empty-state-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
 .loading {
   padding: 2rem;
   text-align: center;

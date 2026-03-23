@@ -240,7 +240,17 @@ export function FeedbackHistoryPage() {
           <div className="loading">{t('app.loading')}</div>
         ) : threads.length === 0 && !hasActiveFilters ? (
           <div className="empty-state">
-            <p>{t('history.noFeedback')}</p>
+            <div className="empty-state-illustration" aria-hidden="true">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="36" fill="rgba(64,51,41,0.06)" stroke="rgba(64,51,41,0.12)" strokeWidth="2"/>
+                <path d="M28 32C28 30.34 29.34 29 31 29H49C50.66 29 52 30.34 52 32V44C52 45.66 50.66 47 49 47H31C29.34 47 28 45.66 28 44V32Z" fill="rgba(203,91,47,0.15)" stroke="rgba(203,91,47,0.4)" strokeWidth="1.5"/>
+                <path d="M34 37H46M34 41H42" stroke="rgba(203,91,47,0.5)" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="40" cy="56" r="2" fill="rgba(64,51,41,0.2)"/>
+                <path d="M36 29V27C36 25.34 37.34 24 39 24H41C42.66 24 44 25.34 44 27V29" stroke="rgba(203,91,47,0.4)" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="empty-state-title">{t('history.noFeedback')}</p>
+            <p className="empty-state-hint">{t('history.noFeedbackHint')}</p>
             <Link to={appKey ? `/submit/${appKey}` : '/submit/demo-app'} className="btn-primary">
               {t('history.submitFeedback')}
             </Link>

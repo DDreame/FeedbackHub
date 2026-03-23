@@ -70,6 +70,7 @@
     "submitFeedback": "提交反馈",
     "backToHome": "返回首页",
     "noFeedback": "您还没有提交过反馈",
+    "noFeedbackHint": "遇到问题或有建议？快来提交反馈吧",
     "noResults": "无符合条件的结果",
     "resultCount": "共 {{count}} 条反馈",
     "pageInfo": "第 {{current}} / {{total}} 页",
