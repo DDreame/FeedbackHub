@@ -2610,3 +2610,278 @@ mark.highlight {
     flex-wrap: wrap;
   }
 }
+
+/* ========================
+   API Keys Page
+   ======================== */
+
+.api-key-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.api-key-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(255, 252, 246, 0.88);
+  border: 1px solid rgba(64, 51, 41, 0.12);
+  border-radius: 1rem;
+  flex-wrap: wrap;
+}
+
+.api-key-info {
+  flex: 1;
+  min-width: 200px;
+  display: grid;
+  gap: 0.375rem;
+}
+
+.api-key-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.api-key-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.api-key-email {
+  color: var(--ink-soft);
+}
+
+.api-key-date {
+  color: var(--ink-soft);
+}
+
+.api-key-id code {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  background: rgba(64, 51, 41, 0.06);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.api-key-actions {
+  display: flex;
+  align-items: center;
+}
+
+.api-key-confirm-revoke {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+}
+
+.api-key-info-banner {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(203, 91, 47, 0.06);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(203, 91, 47, 0.12);
+}
+
+.api-key-info-banner p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+/* ========================
+   Response Templates Page
+   ======================== */
+
+.template-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.template-hint {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+.template-form {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 252, 246, 0.88);
+  border: 1px solid rgba(64, 51, 41, 0.12);
+  border-radius: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.template-form h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.template-form .form-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.template-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.template-card {
+  padding: 1.25rem;
+  background: rgba(255, 252, 246, 0.88);
+  border: 1px solid rgba(64, 51, 41, 0.12);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.template-category-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  background: rgba(203, 91, 47, 0.1);
+  color: var(--accent);
+  border-radius: 9999px;
+  border: 1px solid rgba(203, 91, 47, 0.2);
+}
+
+.template-date {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.template-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.template-body {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.template-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.form-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(64, 51, 41, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 252, 246, 0.96);
+  color: var(--ink-strong);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(203, 91, 47, 0.1);
+}
+
+/* Dark mode overrides for new components */
+[data-theme="dark"] .api-key-card,
+[data-theme="dark"] .template-form,
+[data-theme="dark"] .template-card {
+  background: rgba(15, 20, 25, 0.95);
+}
+
+[data-theme="dark"] .template-category-badge {
+  background: rgba(224, 112, 80, 0.15);
+  color: rgba(224, 112, 80, 0.9);
+  border-color: rgba(224, 112, 80, 0.25);
+}
+
+[data-theme="dark"] .api-key-info-banner {
+  background: rgba(224, 112, 80, 0.08);
+  border-color: rgba(224, 112, 80, 0.15);
+}
+
+[data-theme="dark"] .template-body {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .form-select {
+  background: rgba(35, 55, 75, 0.96);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile responsive for API keys and templates */
+@media (max-width: 480px) {
+  .api-key-card {
+    flex-direction: column;
+  }
+
+  .api-key-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .template-list-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .template-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .template-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .template-delete-confirm {
+    flex-direction: column;
+    width: 100%;
+  }
+}

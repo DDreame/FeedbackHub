@@ -769,3 +769,133 @@ export async function devRemoveTagFromThread(
 
   return response.json();
 }
+
+// ---------------------------------------------------------------------------
+// API Key Management
+// ---------------------------------------------------------------------------
+
+export interface ApiKeyRow {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+  last_used_at?: string;
+  is_active: boolean;
+}
+
+// List all API keys for the authenticated developer
+export async function listApiKeys(): Promise<ApiKeyRow[]> {
+  const response = await devApiFetch(`${DEV_API_BASE}/api-keys`, { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch API keys');
+  }
+
+  return response.json();
+}
+
+// Revoke an API key
+export async function revokeApiKey(keyId: string): Promise<{ message: string }> {
+  const response = await devApiFetch(`${DEV_API_BASE}/api-keys/${keyId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to revoke API key');
+  }
+
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Response Templates
+// ---------------------------------------------------------------------------
+
+export interface ResponseTemplateRow {
+  id: string;
+  developer_email: string;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTemplateRequest {
+  title: string;
+  body: string;
+  category?: string;
+}
+
+export interface UpdateTemplateRequest {
+  title?: string;
+  body?: string;
+  category?: string;
+}
+
+// List all response templates
+export async function listResponseTemplates(): Promise<ResponseTemplateRow[]> {
+  const response = await devApiFetch(`${DEV_API_BASE}/response-templates`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch templates');
+  }
+
+  return response.json();
+}
+
+// Create a response template
+export async function createResponseTemplate(
+  data: CreateTemplateRequest
+): Promise<ResponseTemplateRow> {
+  const response = await devApiFetch(`${DEV_API_BASE}/response-templates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create template');
+  }
+
+  return response.json();
+}
+
+// Update a response template
+export async function updateResponseTemplate(
+  id: string,
+  data: UpdateTemplateRequest
+): Promise<ResponseTemplateRow> {
+  const response = await devApiFetch(`${DEV_API_BASE}/response-templates/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update template');
+  }
+
+  return response.json();
+}
+
+// Delete a response template
+export async function deleteResponseTemplate(id: string): Promise<{ message: string }> {
+  const response = await devApiFetch(`${DEV_API_BASE}/response-templates/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete template');
+  }
+
+  return response.json();
+}
