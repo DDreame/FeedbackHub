@@ -8,7 +8,7 @@ import {
 import { formatRefNumber } from '../utils/formatRefNumber';
 
 const MAX_ATTACHMENTS = 5;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_CONTENT_LENGTH = 2000;
 
 type Step = 'category' | 'form' | 'confirmation';
