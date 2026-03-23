@@ -36,8 +36,8 @@ test.describe('Feedback History Flow', () => {
     if (await filterBtn.isVisible()) {
       await filterBtn.click();
 
-      // Select a status
-      await page.getByText('Received').click();
+      // Select a status using selectOption (not getByText on option element)
+      await page.locator('select').selectOption('received');
 
       // Filter should be applied
       await expect(page.getByText(/Received/).or(page.getByText('No matching results'))).toBeVisible();
