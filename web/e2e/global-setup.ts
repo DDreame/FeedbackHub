@@ -18,12 +18,44 @@ async function globalSetup() {
   }
 
   // Seed a default test app if none exists
+  let appKey = 'test-app';
   try {
-    await page.request.post('http://localhost:3000/v1/feedback/apps', {
+    const appRes = await page.request.post('http://localhost:3000/v1/feedback/apps', {
       json: { name: 'Test App', description: 'E2E test app' }
     });
+    if (appRes.ok()) {
+      const appData = await appRes.json();
+      appKey = appData.app_key;
+    }
   } catch {
-    // App might already exist — ignore errors
+    // App might already exist — ignore
+  }
+
+  // Generate a stable reporter ID for E2E tests
+  const reporterId = 'e2e-reporter-' + '12345678';
+
+  // Create 25 feedback threads for pagination test (need >20 for pagination to show)
+  for (let i = 0; i < 25; i++) {
+    try {
+      await page.request.post('http://localhost:3000/v1/feedback/threads/atomic', {
+        headers: { 'X-Reporter-Id': reporterId },
+        json: {
+          category: '遇到问题',
+          summary: `E2E Test Feedback ${i + 1}`,
+          initial_message: `This is test feedback number ${i + 1} for E2E testing purposes.`,
+          app_key: appKey,
+          context: {
+            app_version: '1.0.0',
+            os_name: 'Test',
+            os_version: '1.0',
+            device_model: 'Test Device',
+            current_route: '/history',
+          },
+        }
+      });
+    } catch {
+      // Some may fail due to timing — ignore
+    }
   }
 
   await browser.close();
