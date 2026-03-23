@@ -2211,3 +2211,402 @@ mark.highlight {
     grid-column: 1;
   }
 }
+
+/* ========================
+   Mobile Responsive — 480px
+   ======================== */
+@media (max-width: 480px) {
+  #root {
+    padding: 0.75rem;
+  }
+
+  .shell {
+    gap: 1rem;
+  }
+
+  .hero,
+  .detail-card,
+  .surface-card,
+  .stack-card {
+    padding: 1rem;
+    border-radius: 0.875rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.125rem;
+  }
+
+  /* Thread cards */
+  .thread-header {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .thread-summary {
+    font-size: 0.875rem;
+  }
+
+  .thread-meta {
+    font-size: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .thread-ref {
+    font-size: 0.7rem;
+  }
+
+  /* Thread list */
+  .dev-thread-card-wrapper,
+  .thread-card-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .thread-row-checkbox {
+    width: 1.125rem;
+    height: 1.125rem;
+    align-self: flex-start;
+  }
+
+  /* Form inputs — touch-friendly */
+  .form-input,
+  .form-textarea,
+  .filter-keyword-input {
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+
+  textarea.form-textarea {
+    min-height: 100px;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+  }
+
+  /* Buttons — touch-friendly */
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-sm {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* Filter bar */
+  .filter-bar-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-keyword-input {
+    width: 100%;
+  }
+
+  .filter-bar-body {
+    padding: 0.75rem;
+  }
+
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-select {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .filter-clear-btn {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  /* History filter bar */
+  .history-filter-bar {
+    padding: 0.75rem;
+  }
+
+  /* Pagination */
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .pagination-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .pagination-info {
+    width: 100%;
+    text-align: center;
+    order: -1;
+  }
+
+  /* Status badge */
+  .status-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  /* Dev thread cards */
+  .dev-thread-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .dev-thread-meta {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .dev-thread-tags-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dev-status-control,
+  .dev-assignee-control,
+  .dev-tags-control {
+    width: 100%;
+  }
+
+  /* Dev context grid */
+  .context-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Dev messages */
+  .message-item {
+    padding: 0.75rem;
+  }
+
+  .message-header {
+    font-size: 0.75rem;
+  }
+
+  /* Dev reply/note forms */
+  .dev-reply-form,
+  .dev-note-form {
+    padding: 1rem;
+  }
+
+  /* Bulk action bar */
+  .bulk-action-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .bulk-info {
+    gap: 0.5rem;
+  }
+
+  .bulk-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .bulk-status-dropdown {
+    width: 100%;
+  }
+
+  .bulk-status-dropdown .btn-primary {
+    width: 100%;
+  }
+
+  .bulk-confirm {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .bulk-confirm-text {
+    width: 100%;
+    font-size: 0.875rem;
+  }
+
+  /* Analytics */
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-card {
+    padding: 1rem;
+  }
+
+  .analytics-trend-chart {
+    height: 120px;
+  }
+
+  /* Thread tags mobile */
+  .thread-tags-display {
+    gap: 0.25rem;
+  }
+
+  .thread-tag-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  /* Dropdown menus on mobile */
+  .dropdown-menu,
+  .bulk-dropdown-menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    border-radius: 1rem 1rem 0 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .dropdown-item {
+    padding: 0.875rem 1rem;
+    min-height: 48px;
+    font-size: 0.9rem;
+  }
+
+  .dropdown-menu-header {
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Toast notifications */
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    top: auto;
+  }
+
+  /* Console nav links */
+  .console-nav-links {
+    flex-direction: column;
+  }
+
+  .console-nav-links a,
+  .console-nav-links button {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Console key status */
+  .console-key-status {
+    padding: 1rem;
+  }
+
+  .key-saved-badge {
+    font-size: 0.875rem;
+  }
+
+  /* Status update dropdown */
+  .status-update-dropdown,
+  .assignee-dropdown,
+  .tag-add-dropdown {
+    width: 100%;
+  }
+
+  .status-update-dropdown .btn-secondary,
+  .assignee-dropdown .btn-secondary,
+  .tag-add-dropdown .btn-secondary {
+    width: 100%;
+  }
+
+  /* Loading / empty states */
+  .loading,
+  .empty-state {
+    padding: 2rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  /* Error messages */
+  .error-message {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  /* Form groups */
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  /* Back links */
+  .back-link {
+    font-size: 0.875rem;
+  }
+
+  /* Surface grid — single column on mobile */
+  .surface-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Category options — 2 columns on mobile */
+  .category-options {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  /* Theme toggle wrapper */
+  .theme-toggle-wrapper {
+    margin-bottom: 0.5rem;
+  }
+
+  .theme-toggle,
+  .language-toggle {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.1rem;
+  }
+
+  /* Attachment area */
+  .attachment-area {
+    min-height: 100px;
+    padding: 1rem;
+  }
+}
+
+/* ========================
+   Mobile Responsive — 720px (tablet range)
+   ======================== */
+@media (max-width: 720px) {
+  .shell {
+    width: 100%;
+    gap: 1.25rem;
+  }
+
+  /* Category options — keep 2 columns at tablet */
+  .category-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Analytics — 2 column tablet */
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .analytics-card-wide {
+    grid-column: 1 / -1;
+  }
+
+  /* Dev thread header — tablet */
+  .dev-thread-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .dev-thread-tags-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
