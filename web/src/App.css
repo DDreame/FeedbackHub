@@ -1295,3 +1295,94 @@
   font-size: 0.8rem;
   color: var(--accent);
 }
+
+/* Apps page */
+.apps-list {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.app-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid rgba(64, 51, 41, 0.1);
+  border-radius: 0.75rem;
+  gap: 1rem;
+}
+
+.app-info {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.app-info h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.app-description {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.app-key {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-family: monospace;
+  background: rgba(64, 51, 41, 0.05);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.app-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.create-app-form {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: rgba(64, 51, 41, 0.04);
+  border: 1px solid rgba(64, 51, 41, 0.1);
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.create-app-form h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid rgba(64, 51, 41, 0.2);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(64, 51, 41, 0.08);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

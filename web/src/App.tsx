@@ -5,6 +5,7 @@ import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
 import { ConsolePage } from './pages/ConsolePage'
+import { AppsPage } from './pages/AppsPage'
 import { listApps, type AppResponse } from './services/api'
 import { toggleLanguage, getCurrentLanguage } from './i18n'
 
@@ -106,6 +107,13 @@ function HomePage() {
               </Link>
             </article>
           ))}
+          <article className="surface-card">
+            <h2>{t('home.manageApps')}</h2>
+            <p>{t('home.manageAppsDescription')}</p>
+            <Link className="route-link" to="/apps">
+              {t('home.manageAppsLink')}
+            </Link>
+          </article>
         </section>
         <section className="surface-grid" aria-label="features">
           <article className="surface-card">
@@ -174,6 +182,7 @@ function App() {
         <Route path="/history/:appKey" element={<FeedbackHistoryPage />} />
         <Route path="/feedback/:threadId" element={<FeedbackThreadPage />} />
         <Route path="/console" element={<ConsolePage />} />
+        <Route path="/apps" element={<AppsPage />} />
       </Routes>
     </AppShell>
   );

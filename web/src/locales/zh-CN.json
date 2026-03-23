@@ -16,7 +16,10 @@
     "submitDescription": "遇到问题或有建议？告诉我们",
     "myFeedback": "我的反馈",
     "historyDescription": "查看您提交的所有反馈记录",
-    "viewHistory": "查看历史"
+    "viewHistory": "查看历史",
+    "manageApps": "管理应用",
+    "manageAppsDescription": "创建和管理您的应用",
+    "manageAppsLink": "管理应用"
   },
   "console": {
     "eyebrow": "开发者控制台",
@@ -30,6 +33,22 @@
     "apiKeySaved": "API Key 已配置",
     "apiKeyError": "请输入有效的 API Key",
     "apiKeyHint": "您的 API Key 用于访问开发者 API。请妥善保管，不要泄露。"
+  },
+  "apps": {
+    "eyebrow": "应用管理",
+    "title": "我的应用",
+    "noApps": "您还没有创建任何应用",
+    "createApp": "创建应用",
+    "createTitle": "创建新应用",
+    "nameLabel": "应用名称",
+    "namePlaceholder": "请输入应用名称",
+    "descLabel": "应用描述（可选）",
+    "descPlaceholder": "请输入应用描述",
+    "create": "创建",
+    "cancel": "取消",
+    "submitFeedback": "提交反馈",
+    "viewHistory": "查看历史",
+    "backToHome": "返回首页"
   },
   "history": {
     "eyebrow": "反馈历史",

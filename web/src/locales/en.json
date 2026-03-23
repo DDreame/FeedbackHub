@@ -16,7 +16,10 @@
     "submitDescription": "Found an issue or have a suggestion? Let us know.",
     "myFeedback": "My Feedback",
     "historyDescription": "View all your submitted feedback",
-    "viewHistory": "View History"
+    "viewHistory": "View History",
+    "manageApps": "Manage Apps",
+    "manageAppsDescription": "Create and manage your apps",
+    "manageAppsLink": "Manage Apps"
   },
   "console": {
     "eyebrow": "Developer Console",
@@ -30,6 +33,22 @@
     "apiKeySaved": "API Key configured",
     "apiKeyError": "Please enter a valid API Key",
     "apiKeyHint": "Your API Key is used to access the developer API. Keep it secure and do not share it."
+  },
+  "apps": {
+    "eyebrow": "App Management",
+    "title": "My Apps",
+    "noApps": "You haven't created any apps yet",
+    "createApp": "Create App",
+    "createTitle": "Create New App",
+    "nameLabel": "App Name",
+    "namePlaceholder": "Enter app name",
+    "descLabel": "Description (optional)",
+    "descPlaceholder": "Enter app description",
+    "create": "Create",
+    "cancel": "Cancel",
+    "submitFeedback": "Submit Feedback",
+    "viewHistory": "View History",
+    "backToHome": "Back to Home"
   },
   "history": {
     "eyebrow": "Feedback History",

@@ -300,6 +300,30 @@ export async function listApps(): Promise<AppResponse[]> {
   return response.json();
 }
 
+// Create a new app
+export interface CreateAppRequest {
+  name: string;
+  description?: string;
+}
+
+export async function createApp(data: CreateAppRequest): Promise<AppResponse> {
+  const response = await fetch(`${API_BASE}/feedback/apps`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...buildReporterHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create app');
+  }
+
+  return response.json();
+}
+
 // Get a single thread
 export async function getThread(threadId: string): Promise<ThreadResponse> {
   const response = await fetch(`${API_BASE}/feedback/threads/${threadId}`, {
