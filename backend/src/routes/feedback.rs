@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State, Extension},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -403,14 +403,13 @@ pub async fn api_key_auth(
     struct KeyInfo {
         email: String,
     }
-    let key_info: Option<KeyInfo> = sqlx::query_as(
-        "SELECT email FROM api_keys WHERE key_hash = $1 AND is_active = TRUE",
-    )
-    .bind(&key_hash)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let key_info: Option<KeyInfo> =
+        sqlx::query_as("SELECT email FROM api_keys WHERE key_hash = $1 AND is_active = TRUE")
+            .bind(&key_hash)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let Some(key_info) = key_info else {
         let resp = (
@@ -547,20 +546,19 @@ pub async fn revoke_api_key(
     Path(key_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify the key exists and belongs to this developer
-    let owner_email: Option<String> = sqlx::query_scalar(
-        "SELECT email FROM api_keys WHERE id = $1",
-    )
-    .bind(key_id)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    let owner_email: Option<String> =
+        sqlx::query_scalar("SELECT email FROM api_keys WHERE id = $1")
+            .bind(key_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     let owner_email = owner_email.ok_or((
         StatusCode::NOT_FOUND,
@@ -592,7 +590,9 @@ pub async fn revoke_api_key(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "status": "revoked", "id": key_id })))
+    Ok(Json(
+        serde_json::json!({ "status": "revoked", "id": key_id }),
+    ))
 }
 
 #[cfg(test)]
