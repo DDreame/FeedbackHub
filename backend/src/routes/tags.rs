@@ -2,9 +2,9 @@
 
 use crate::routes::feedback::{AppState, ErrorResponse};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{delete, get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -30,23 +30,21 @@ async fn dev_create_tag(
     let id = Uuid::now_v7();
     let now = chrono::Utc::now();
 
-    sqlx::query(
-        r#"INSERT INTO tags (id, name, color, created_at) VALUES ($1, $2, $3, $4)"#,
-    )
-    .bind(id)
-    .bind(&payload.name)
-    .bind(&payload.color)
-    .bind(now)
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    sqlx::query(r#"INSERT INTO tags (id, name, color, created_at) VALUES ($1, $2, $3, $4)"#)
+        .bind(id)
+        .bind(&payload.name)
+        .bind(&payload.color)
+        .bind(now)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     #[derive(Serialize)]
     struct TagResponse {
@@ -66,17 +64,18 @@ async fn dev_create_tag(
 async fn dev_list_tags(
     State(state): State<AppState>,
 ) -> Result<impl axum::response::IntoResponse, (axum::http::StatusCode, Json<ErrorResponse>)> {
-    let tags: Vec<Tag> = sqlx::query_as("SELECT id, name, color, created_at FROM tags ORDER BY name")
-        .fetch_all(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let tags: Vec<Tag> =
+        sqlx::query_as("SELECT id, name, color, created_at FROM tags ORDER BY name")
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     Ok(Json(tags))
 }
@@ -122,18 +121,19 @@ async fn dev_add_tag_to_thread(
     Json(payload): Json<AddTagRequest>,
 ) -> Result<impl axum::response::IntoResponse, (axum::http::StatusCode, Json<ErrorResponse>)> {
     // Verify thread exists
-    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
-        .bind(thread_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
+            .bind(thread_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     if !exists {
         return Err((
@@ -145,19 +145,18 @@ async fn dev_add_tag_to_thread(
     }
 
     // Verify tag exists
-    let tag_exists: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE id = $1)")
-            .bind(payload.tag_id)
-            .fetch_one(&state.db)
-            .await
-            .map_err(|e| {
-                (
-                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: e.to_string(),
-                    }),
-                )
-            })?;
+    let tag_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE id = $1)")
+        .bind(payload.tag_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     if !tag_exists {
         return Err((
@@ -186,7 +185,9 @@ async fn dev_add_tag_to_thread(
         )
     })?;
 
-    Ok(Json(serde_json::json!({ "message": "tag added to thread" })))
+    Ok(Json(
+        serde_json::json!({ "message": "tag added to thread" }),
+    ))
 }
 
 /// DELETE /v1/dev/feedback/threads/{thread_id}/tags/{tag_id} - Remove tag from thread
@@ -208,7 +209,9 @@ async fn dev_remove_tag_from_thread(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "message": "tag removed from thread" })))
+    Ok(Json(
+        serde_json::json!({ "message": "tag removed from thread" }),
+    ))
 }
 
 /// GET /v1/dev/feedback/threads/{thread_id}/tags - List tags on a thread

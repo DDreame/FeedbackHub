@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -18,6 +18,54 @@ use crate::model::thread::{
 
 #[allow(unused_imports)]
 use super::feedback::{AppState, RateLimiter};
+
+use crate::email::{self, EmailPayload, SmtpConfig};
+
+// ---------------------------------------------------------------------------
+// Confirmation email helper
+// ---------------------------------------------------------------------------
+
+/// Send a submission confirmation email to the reporter (non-blocking).
+/// Only sends if SMTP is configured and reporter_contact email is provided.
+async fn maybe_send_confirmation_email(
+    reporter_contact: Option<&str>,
+    reference_number: &str,
+    category: &str,
+    summary: &str,
+    thread_id: Uuid,
+) {
+    let Some(reporter_email) = reporter_contact else {
+        return;
+    };
+
+    let smtp_config = match SmtpConfig::from_env() {
+        Some(cfg) if cfg.is_configured() => cfg,
+        _ => return,
+    };
+
+    let frontend_base =
+        std::env::var("FRONTEND_BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let thread_url = format!("{}/threads/{}", frontend_base, thread_id);
+
+    let template = email::template_submission_confirmation(
+        "用户",
+        reference_number,
+        category,
+        summary,
+        &thread_url,
+    );
+
+    let email_payload = EmailPayload {
+        to_email: reporter_email.to_string(),
+        to_name: template.to_name,
+        subject: template.subject,
+        body_html: template.body_html,
+    };
+
+    if let Err(e) = email::send_email(&smtp_config, &email_payload) {
+        eprintln!("Failed to send confirmation email: {}", e);
+    }
+}
 
 fn extract_reporter_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
@@ -80,6 +128,7 @@ async fn create_thread(
     }
 
     let id = Uuid::now_v7();
+    let reference_number = generate_reference_number();
     let now = Utc::now();
     let context = ContextSnapshot {
         app_version: payload.context.app_version,
@@ -117,8 +166,9 @@ async fn create_thread(
             latest_public_message_at, created_at, updated_at, closed_at,
             context_app_version, context_build_number, context_os_name,
             context_os_version, context_device_model, context_locale,
-            context_current_route, context_captured_at, context_reporter_account_id
-        ) VALUES ($1, $2, $3, $4, 'received', $5, $6, $6, $6, NULL, $7, $8, $9, $10, $11, $12, $13, $6, $14)
+            context_current_route, context_captured_at, context_reporter_account_id,
+            reference_number
+        ) VALUES ($1, $2, $3, $4, 'received', $5, $6, $6, $6, NULL, $7, $8, $9, $10, $11, $12, $13, $6, $14, $15)
         "#,
     )
     .bind(id)
@@ -135,6 +185,7 @@ async fn create_thread(
     .bind(&context.locale)
     .bind(&context.current_route)
     .bind(&context.reporter_account_id)
+    .bind(&reference_number)
     .execute(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
@@ -149,7 +200,29 @@ async fn create_thread(
         payload.summary.clone(),
     );
 
-    Ok((StatusCode::CREATED, Json(CreateThreadResponse { id })))
+    // Send confirmation email (non-blocking)
+    let reporter_contact = payload.reporter_contact.clone();
+    let category = payload.category.clone();
+    let summary = payload.summary.clone();
+    let reference_number_for_email = reference_number.clone();
+    tokio::spawn(async move {
+        maybe_send_confirmation_email(
+            reporter_contact.as_deref(),
+            &reference_number_for_email,
+            &category,
+            &summary,
+            id,
+        )
+        .await;
+    });
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateThreadResponse {
+            id,
+            reference_number,
+        }),
+    ))
 }
 
 /// POST /v1/feedback/threads/atomic
@@ -177,6 +250,7 @@ async fn create_thread_atomic(
     }
 
     let thread_id = Uuid::now_v7();
+    let reference_number = generate_reference_number();
     let now = Utc::now();
     let context = ContextSnapshot {
         app_version: payload.thread.context.app_version.clone(),
@@ -225,8 +299,9 @@ async fn create_thread_atomic(
             latest_public_message_at, created_at, updated_at, closed_at,
             context_app_version, context_build_number, context_os_name,
             context_os_version, context_device_model, context_locale,
-            context_current_route, context_captured_at, context_reporter_account_id
-        ) VALUES ($1, $2, $3, $4, 'received', $5, $6, $6, $6, NULL, $7, $8, $9, $10, $11, $12, $13, $6, $14)
+            context_current_route, context_captured_at, context_reporter_account_id,
+            reference_number
+        ) VALUES ($1, $2, $3, $4, 'received', $5, $6, $6, $6, NULL, $7, $8, $9, $10, $11, $12, $13, $6, $14, $15)
         "#,
     )
     .bind(thread_id)
@@ -243,6 +318,7 @@ async fn create_thread_atomic(
     .bind(&context.locale)
     .bind(&context.current_route)
     .bind(&context.reporter_account_id)
+    .bind(&reference_number)
     .execute(&mut *tx)
     .await
     .map_err(|e| {
@@ -299,6 +375,22 @@ async fn create_thread_atomic(
         })?;
     }
 
+    // Send confirmation email (non-blocking) - use reporter_contact from thread payload
+    let reporter_contact = payload.thread.reporter_contact.clone();
+    let category = payload.thread.category.clone();
+    let summary = payload.thread.summary.clone();
+    let reference_number_for_email = reference_number.clone();
+    tokio::spawn(async move {
+        maybe_send_confirmation_email(
+            reporter_contact.as_deref(),
+            &reference_number_for_email,
+            &category,
+            &summary,
+            thread_id,
+        )
+        .await;
+    });
+
     tx.commit().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -313,6 +405,7 @@ async fn create_thread_atomic(
         Json(CreateThreadAtomicResponse {
             thread_id,
             message_id,
+            reference_number,
         }),
     ))
 }
@@ -376,7 +469,10 @@ async fn create_thread_anonymous(
         reference_number: String,
     }
 
-    Ok(Json(AnonymousThreadResponse { id, reference_number }))
+    Ok(Json(AnonymousThreadResponse {
+        id,
+        reference_number,
+    }))
 }
 
 fn generate_reference_number() -> String {
@@ -1133,7 +1229,9 @@ async fn recover_my_thread(
         )
     })?;
 
-    Ok(Json(serde_json::json!({ "message": "thread recovered successfully" })))
+    Ok(Json(
+        serde_json::json!({ "message": "thread recovered successfully" }),
+    ))
 }
 
 /// GET /v1/public/threads/:thread_id/status
@@ -1185,6 +1283,164 @@ async fn get_public_thread_status(
 }
 
 // ---------------------------------------------------------------------------
+// Reporter notification preferences
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct UpdateNotificationPrefsRequest {
+    notify_on_reply: Option<bool>,
+    notify_on_status_change: Option<bool>,
+    notify_on_close: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+struct NotificationPrefsResponse {
+    email: String,
+    notify_on_reply: bool,
+    notify_on_status_change: bool,
+    notify_on_close: bool,
+}
+
+/// GET /v1/feedback/notification-preferences
+/// Get current reporter's notification preferences.
+async fn get_notification_prefs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    let row: Option<(String, bool, bool, bool)> = sqlx::query_as(
+        "SELECT email, notify_on_reply, notify_on_status_change, notify_on_close
+         FROM notification_preferences WHERE reporter_id = $1",
+    )
+    .bind(reporter_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    match row {
+        Some((email, notify_on_reply, notify_on_status_change, notify_on_close)) => {
+            Ok(Json(NotificationPrefsResponse {
+                email,
+                notify_on_reply,
+                notify_on_status_change,
+                notify_on_close,
+            }))
+        }
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "notification preferences not found".to_string(),
+            }),
+        )),
+    }
+}
+
+/// PATCH /v1/feedback/notification-preferences
+/// Update current reporter's notification preferences.
+async fn patch_notification_prefs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateNotificationPrefsRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    // Check if preferences exist
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM notification_preferences WHERE reporter_id = $1)",
+    )
+    .bind(reporter_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    if !exists {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "notification preferences not found".to_string(),
+            }),
+        ));
+    }
+
+    // Build dynamic update query
+    let now = Utc::now();
+    sqlx::query(
+        r#"
+        UPDATE notification_preferences
+        SET notify_on_reply = COALESCE($1, notify_on_reply),
+            notify_on_status_change = COALESCE($2, notify_on_status_change),
+            notify_on_close = COALESCE($3, notify_on_close),
+            updated_at = $4
+        WHERE reporter_id = $5
+        "#,
+    )
+    .bind(payload.notify_on_reply)
+    .bind(payload.notify_on_status_change)
+    .bind(payload.notify_on_close)
+    .bind(now)
+    .bind(reporter_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    // Fetch updated record
+    let row: (String, bool, bool, bool) = sqlx::query_as(
+        "SELECT email, notify_on_reply, notify_on_status_change, notify_on_close
+         FROM notification_preferences WHERE reporter_id = $1",
+    )
+    .bind(reporter_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    Ok(Json(NotificationPrefsResponse {
+        email: row.0,
+        notify_on_reply: row.1,
+        notify_on_status_change: row.2,
+        notify_on_close: row.3,
+    }))
+}
+
+// ---------------------------------------------------------------------------
 // Routes registration
 // ---------------------------------------------------------------------------
 
@@ -1221,6 +1477,15 @@ pub fn thread_routes(state: AppState) -> Router {
         .route(
             "/v1/feedback/threads/anonymous",
             post(create_thread_anonymous),
+        )
+        // Reporter notification preferences (auth via X-Reporter-Id header)
+        .route(
+            "/v1/feedback/notification-preferences",
+            get(get_notification_prefs),
+        )
+        .route(
+            "/v1/feedback/notification-preferences",
+            patch(patch_notification_prefs),
         )
         .with_state(state)
 }

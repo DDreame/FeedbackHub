@@ -213,6 +213,43 @@ pub fn template_close_notification(
     }
 }
 
+/// Build email for thread submission confirmation sent to reporter.
+pub fn template_submission_confirmation(
+    reporter_name: &str,
+    reference_number: &str,
+    category: &str,
+    summary: &str,
+    thread_url: &str,
+) -> EmailPayload {
+    let body = format!(
+        r#"<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2>您好，{}</h2>
+  <p>感谢您提交反馈！我们已收到您的报告。</p>
+  <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+    <p style="margin: 0 0 8px 0;"><strong>编号：</strong> {}</p>
+    <p style="margin: 0 0 8px 0;"><strong>类型：</strong> {}</p>
+    <p style="margin: 0;"><strong>摘要：</strong> {}</p>
+  </div>
+  <p>我们会将您的反馈转交给相关开发人员处理。如有需要，开发人员可能会通过此邮箱与您联系。</p>
+  <p style="color: #666; margin-top: 15px;">您可以使用上述编号在「我的反馈」页面查看处理进度。</p>
+  <a href="{}" style="display: inline-block; background: #007bff; color: white; padding: 10px 20px;
+     text-decoration: none; border-radius: 5px; margin-top: 10px;">查看我的反馈</a>
+</body>
+</html>"#,
+        reporter_name, reference_number, category, summary, thread_url
+    );
+
+    EmailPayload {
+        to_email: String::new(),
+        to_name: reporter_name.to_string(),
+        subject: format!("[FeedBack] 已收到您的反馈——{}", reference_number),
+        body_html: body,
+    }
+}
+
 /// Build email for scheduled auto-follow-up when a thread is waiting for reporter response.
 pub fn template_follow_up_notification(
     reporter_name: &str,

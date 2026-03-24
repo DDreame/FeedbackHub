@@ -109,13 +109,11 @@ pub fn deliver_webhook(url: String, payload: WebhookPayload, secret: Option<Stri
 
                 use sha2::{Digest, Sha256};
                 let sig_hash = Sha256::digest(signature_input.as_bytes());
-                let sig_hex: String = sig_hash
-                    .iter()
-                    .fold(String::new(), |mut acc, b| {
-                        use std::fmt::Write;
-                        write!(&mut acc, "{:02x}", b).unwrap();
-                        acc
-                    });
+                let sig_hex: String = sig_hash.iter().fold(String::new(), |mut acc, b| {
+                    use std::fmt::Write;
+                    write!(&mut acc, "{:02x}", b).unwrap();
+                    acc
+                });
 
                 request = request
                     .header("X-Webhook-Signature", sig_hex)

@@ -195,6 +195,7 @@ pub struct CreateThreadAtomicRequest {
 pub struct CreateThreadAtomicResponse {
     pub thread_id: Uuid,
     pub message_id: Option<Uuid>,
+    pub reference_number: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -347,6 +348,7 @@ impl From<FeedbackMessage> for MessageResponse {
 #[derive(Debug, Serialize)]
 pub struct CreateThreadResponse {
     pub id: Uuid,
+    pub reference_number: String,
 }
 
 // ---------------------------------------------------------------------------

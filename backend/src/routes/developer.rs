@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State, Extension},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, patch, post},
@@ -20,7 +20,7 @@ use crate::model::thread::{
     MarkSpamRequest, MessageResponse, ThreadStatus, UpdateStatusRequest,
 };
 
-use super::feedback::{AppState, create_api_key, list_api_keys, revoke_api_key, DevAuthInfo};
+use super::feedback::{AppState, DevAuthInfo, create_api_key, list_api_keys, revoke_api_key};
 
 // ---------------------------------------------------------------------------
 // Query types
@@ -362,8 +362,14 @@ async fn dev_export_csv(
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Validate status value to prevent SQL injection
     let status_value = query.status.as_ref().and_then(|s| {
-        if ["received", "in_review", "waiting_for_user", "closed", "deleted"]
-            .contains(&s.as_str())
+        if [
+            "received",
+            "in_review",
+            "waiting_for_user",
+            "closed",
+            "deleted",
+        ]
+        .contains(&s.as_str())
         {
             Some(s.clone())
         } else {
@@ -372,9 +378,8 @@ async fn dev_export_csv(
     });
 
     let rows: Vec<FeedbackThread> = match (&status_value, &query.category, &query.assignee_id) {
-        (None, None, None) => {
-            sqlx::query_as(
-                r#"
+        (None, None, None) => sqlx::query_as(
+            r#"
                 SELECT id, reporter_id, reporter_contact, category, status, summary,
                        latest_public_message_at, created_at, updated_at, closed_at,
                        context_app_version, context_build_number, context_os_name,
@@ -386,18 +391,17 @@ async fn dev_export_csv(
                 ORDER BY latest_public_message_at DESC
                 LIMIT 10000
                 "#,
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
             )
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse {
-                        error: e.to_string(),
-                    }),
-                )
-            })?
-        }
+        })?,
         _ => {
             let category_pattern = query.category.as_deref().map(|c| format!("%{}%", c));
             sqlx::query_as(
@@ -468,11 +472,7 @@ async fn dev_export_csv(
         csv.push_str(&line);
     }
 
-    Ok((
-        StatusCode::OK,
-        [("Content-Type", "text/csv")],
-        csv,
-    ))
+    Ok((StatusCode::OK, [("Content-Type", "text/csv")], csv))
 }
 
 /// POST /v1/dev/feedback/threads/:thread_id/reply
@@ -553,7 +553,14 @@ async fn dev_reply(
         tokio::spawn(async move {
             maybe_send_notification(&db, reporter_id, &summary, NotificationType::Reply).await;
             // Trigger webhook for reply
-            crate::webhook::trigger_feedback_replied(&db, thread_id, app_id, id, "developer".to_string()).await;
+            crate::webhook::trigger_feedback_replied(
+                &db,
+                thread_id,
+                app_id,
+                id,
+                "developer".to_string(),
+            )
+            .await;
         });
     }
 
@@ -1067,20 +1074,19 @@ async fn dev_merge_threads(
     }
 
     // Fetch both threads to verify they exist and are not deleted
-    let target: Option<(Uuid, String)> = sqlx::query_as(
-        r#"SELECT id, status FROM feedback_threads WHERE id = $1"#,
-    )
-    .bind(target_id)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    let target: Option<(Uuid, String)> =
+        sqlx::query_as(r#"SELECT id, status FROM feedback_threads WHERE id = $1"#)
+            .bind(target_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     let target = target.ok_or((
         StatusCode::NOT_FOUND,
@@ -1098,20 +1104,19 @@ async fn dev_merge_threads(
         ));
     }
 
-    let source: Option<(Uuid, String)> = sqlx::query_as(
-        r#"SELECT id, status FROM feedback_threads WHERE id = $1"#,
-    )
-    .bind(source_id)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    let source: Option<(Uuid, String)> =
+        sqlx::query_as(r#"SELECT id, status FROM feedback_threads WHERE id = $1"#)
+            .bind(source_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
 
     let source = source.ok_or((
         StatusCode::NOT_FOUND,
@@ -1142,38 +1147,34 @@ async fn dev_merge_threads(
     let now = Utc::now();
 
     // Move all messages from source to target (update thread_id FK)
-    sqlx::query(
-        r#"UPDATE feedback_messages SET thread_id = $1 WHERE thread_id = $2"#,
-    )
-    .bind(target_id)
-    .bind(source_id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    sqlx::query(r#"UPDATE feedback_messages SET thread_id = $1 WHERE thread_id = $2"#)
+        .bind(target_id)
+        .bind(source_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     // Move all tags from source to target
     // First, delete any existing tags on target that might conflict (same tag_id)
-    sqlx::query(
-        r#"DELETE FROM thread_tags WHERE thread_id = $1"#,
-    )
-    .bind(target_id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    sqlx::query(r#"DELETE FROM thread_tags WHERE thread_id = $1"#)
+        .bind(target_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     // Insert tags from source onto target (skip duplicates via ON CONFLICT DO NOTHING)
     sqlx::query(
@@ -1197,20 +1198,18 @@ async fn dev_merge_threads(
     })?;
 
     // Delete source thread tags (cleanup)
-    sqlx::query(
-        r#"DELETE FROM thread_tags WHERE thread_id = $1"#,
-    )
-    .bind(source_id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    sqlx::query(r#"DELETE FROM thread_tags WHERE thread_id = $1"#)
+        .bind(source_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     // Update target's latest_public_message_at if source has a newer timestamp
     sqlx::query(
@@ -1421,14 +1420,13 @@ async fn update_template(
     Json(payload): Json<UpdateTemplateRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify ownership
-    let owner_email: Option<String> = sqlx::query_scalar(
-        "SELECT developer_email FROM response_templates WHERE id = $1",
-    )
-    .bind(template_id)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let owner_email: Option<String> =
+        sqlx::query_scalar("SELECT developer_email FROM response_templates WHERE id = $1")
+            .bind(template_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let owner_email = owner_email.ok_or((
         StatusCode::NOT_FOUND,
@@ -1505,14 +1503,13 @@ async fn delete_template(
     Path(template_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify ownership
-    let owner_email: Option<String> = sqlx::query_scalar(
-        "SELECT developer_email FROM response_templates WHERE id = $1",
-    )
-    .bind(template_id)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let owner_email: Option<String> =
+        sqlx::query_scalar("SELECT developer_email FROM response_templates WHERE id = $1")
+            .bind(template_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let owner_email = owner_email.ok_or((
         StatusCode::NOT_FOUND,
@@ -1543,7 +1540,9 @@ async fn delete_template(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "status": "deleted", "id": template_id })))
+    Ok(Json(
+        serde_json::json!({ "status": "deleted", "id": template_id }),
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -1631,7 +1630,10 @@ async fn dev_create_app(
         created_at: now,
     };
 
-    Ok((StatusCode::CREATED, Json(crate::routes::apps::CreateAppResponse::from(app))))
+    Ok((
+        StatusCode::CREATED,
+        Json(crate::routes::apps::CreateAppResponse::from(app)),
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -1742,15 +1744,14 @@ async fn invite_team_member(
     }
 
     // Verify the authenticated user is an admin or owner of this app
-    let user_role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
-    )
-    .bind(app_id)
-    .bind(&auth.email)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let user_role: Option<String> =
+        sqlx::query_scalar("SELECT role FROM team_members WHERE app_id = $1 AND email = $2")
+            .bind(app_id)
+            .bind(&auth.email)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let user_role = user_role.ok_or((
         StatusCode::FORBIDDEN,
@@ -1844,15 +1845,14 @@ async fn update_team_member(
     Json(payload): Json<UpdateTeamMemberRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify the authenticated user is an admin or owner of this app
-    let user_role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
-    )
-    .bind(app_id)
-    .bind(&auth.email)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let user_role: Option<String> =
+        sqlx::query_scalar("SELECT role FROM team_members WHERE app_id = $1 AND email = $2")
+            .bind(app_id)
+            .bind(&auth.email)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let user_role = user_role.ok_or((
         StatusCode::FORBIDDEN,
@@ -1918,15 +1918,14 @@ async fn remove_team_member(
     Path((app_id, member_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify the authenticated user is an admin or owner of this app
-    let user_role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM team_members WHERE app_id = $1 AND email = $2",
-    )
-    .bind(app_id)
-    .bind(&auth.email)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let user_role: Option<String> =
+        sqlx::query_scalar("SELECT role FROM team_members WHERE app_id = $1 AND email = $2")
+            .bind(app_id)
+            .bind(&auth.email)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let user_role = user_role.ok_or((
         StatusCode::FORBIDDEN,
@@ -1945,15 +1944,14 @@ async fn remove_team_member(
     }
 
     // Get the member being removed to check their role
-    let member_role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM team_members WHERE id = $1 AND app_id = $2",
-    )
-    .bind(member_id)
-    .bind(app_id)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
+    let member_role: Option<String> =
+        sqlx::query_scalar("SELECT role FROM team_members WHERE id = $1 AND app_id = $2")
+            .bind(member_id)
+            .bind(app_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
 
     let member_role = member_role.ok_or((
         StatusCode::NOT_FOUND,
@@ -1996,7 +1994,9 @@ async fn remove_team_member(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "status": "removed", "id": member_id })))
+    Ok(Json(
+        serde_json::json!({ "status": "removed", "id": member_id }),
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -2053,12 +2053,30 @@ pub fn dev_routes(state: AppState) -> Router {
         .route("/v1/dev/api-keys/{key_id}", delete(revoke_api_key))
         .route("/v1/dev/response-templates", get(list_templates))
         .route("/v1/dev/response-templates", post(create_template))
-        .route("/v1/dev/response-templates/{template_id}", patch(update_template))
-        .route("/v1/dev/response-templates/{template_id}", delete(delete_template))
-        .route("/v1/dev/feedback/apps/{app_id}/team-members", get(list_team_members))
-        .route("/v1/dev/feedback/apps/{app_id}/team-members", post(invite_team_member))
-        .route("/v1/dev/feedback/apps/{app_id}/team-members/{member_id}", patch(update_team_member))
-        .route("/v1/dev/feedback/apps/{app_id}/team-members/{member_id}", delete(remove_team_member))
+        .route(
+            "/v1/dev/response-templates/{template_id}",
+            patch(update_template),
+        )
+        .route(
+            "/v1/dev/response-templates/{template_id}",
+            delete(delete_template),
+        )
+        .route(
+            "/v1/dev/feedback/apps/{app_id}/team-members",
+            get(list_team_members),
+        )
+        .route(
+            "/v1/dev/feedback/apps/{app_id}/team-members",
+            post(invite_team_member),
+        )
+        .route(
+            "/v1/dev/feedback/apps/{app_id}/team-members/{member_id}",
+            patch(update_team_member),
+        )
+        .route(
+            "/v1/dev/feedback/apps/{app_id}/team-members/{member_id}",
+            delete(remove_team_member),
+        )
         .route("/v1/dev/feedback/apps", post(dev_create_app))
         .with_state(state)
 }

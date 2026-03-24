@@ -9,9 +9,7 @@
 //! This binary is designed to be run periodically via cron or a scheduler
 //! (e.g., every hour).
 
-use feedback_system_backend::email::{
-    self, SmtpConfig, template_follow_up_notification,
-};
+use feedback_system_backend::email::{self, SmtpConfig, template_follow_up_notification};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 
@@ -22,8 +20,7 @@ async fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -82,10 +79,7 @@ async fn main() {
         };
 
         // Build follow-up email
-        let thread_url = format!(
-            "https://feedback.example.com/threads/{}",
-            thread.thread_id
-        );
+        let thread_url = format!("https://feedback.example.com/threads/{}", thread.thread_id);
 
         let mut email_payload = template_follow_up_notification(
             &thread.reporter_id.to_string()[..8], // Use truncated ID as name
@@ -119,13 +113,11 @@ async fn main() {
         }
 
         // Clear follow_up_due_at to prevent re-sending
-        sqlx::query(
-            r#"UPDATE feedback_threads SET follow_up_due_at = NULL WHERE id = $1"#,
-        )
-        .bind(thread.thread_id)
-        .execute(&pool)
-        .await
-        .expect("failed to clear follow_up_due_at");
+        sqlx::query(r#"UPDATE feedback_threads SET follow_up_due_at = NULL WHERE id = $1"#)
+            .bind(thread.thread_id)
+            .execute(&pool)
+            .await
+            .expect("failed to clear follow_up_due_at");
 
         success_count += 1;
     }
