@@ -1282,7 +1282,7 @@ async fn get_public_thread_status(
     }))
 }
 
-/// GET /v1/public/threads/by-reference/:reference_number/status
+/// GET /v1/public/threads/by-ref/:reference_number/status
 /// Public endpoint to check thread status by human-readable reference number (#t11)
 async fn get_public_thread_status_by_reference(
     State(state): State<AppState>,
@@ -1524,7 +1524,7 @@ pub fn thread_routes(state: AppState) -> Router {
             get(get_public_thread_status),
         )
         .route(
-            "/v1/public/threads/by-reference/{reference_number}/status",
+            "/v1/public/threads/by-ref/{reference_number}/status",
             get(get_public_thread_status_by_reference),
         )
         // Anonymous feedback (no auth required)
