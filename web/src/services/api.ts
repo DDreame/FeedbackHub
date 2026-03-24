@@ -289,6 +289,59 @@ export interface AppResponse {
   created_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Notification Preferences
+// ---------------------------------------------------------------------------
+
+export interface NotificationPrefs {
+  email: string;
+  notify_on_reply: boolean;
+  notify_on_status_change: boolean;
+  notify_on_close: boolean;
+}
+
+export interface UpdateNotificationPrefsRequest {
+  notify_on_reply?: boolean;
+  notify_on_status_change?: boolean;
+  notify_on_close?: boolean;
+}
+
+// Get reporter's notification preferences
+export async function getNotificationPrefs(): Promise<NotificationPrefs> {
+  const response = await fetch(`${API_BASE}/feedback/notification-preferences`, {
+    method: 'GET',
+    headers: buildReporterHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch notification preferences');
+  }
+
+  return response.json();
+}
+
+// Update reporter's notification preferences
+export async function updateNotificationPrefs(
+  data: UpdateNotificationPrefsRequest
+): Promise<NotificationPrefs> {
+  const response = await fetch(`${API_BASE}/feedback/notification-preferences`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...buildReporterHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update notification preferences');
+  }
+
+  return response.json();
+}
+
 // List user's apps
 export async function listApps(): Promise<AppResponse[]> {
   const response = await fetch(`${API_BASE}/feedback/apps`, {

@@ -188,7 +188,8 @@
     "previous": "上一頁",
     "next": "下一頁",
     "retry": "重試",
-    "close": "關閉"
+    "close": "關閉",
+    "notificationSettings": "通知設定"
   },
   "submit": {
     "eyebrow": "回饋提交",
@@ -236,6 +237,21 @@
     "waitingResponse": "💬 開發者已回覆，等待您的操作",
     "closed": "✅ 此回饋已關閉，如有需要可繼續回覆",
     "statusChanged": "狀態已更新"
+  },
+  "notifPrefs": {
+    "eyebrow": "設定",
+    "title": "通知偏好設定",
+    "description": "選擇您希望接收哪些關於回饋的郵件通知。",
+    "notifyOnReply": "回覆通知",
+    "notifyOnReplyHint": "當開發者回覆您的回饋時，收到郵件通知",
+    "notifyOnStatusChange": "狀態更新",
+    "notifyOnStatusChangeHint": "當您的回饋狀態發生變化時，收到郵件通知",
+    "notifyOnClose": "關閉通知",
+    "notifyOnCloseHint": "當您的回饋被關閉時，收到郵件通知",
+    "loadError": "載入通知偏好設定失敗",
+    "saveError": "儲存失敗，請重試",
+    "saveSuccess": "已儲存",
+    "backToHistory": "返回我的回饋"
   },
   "thread": {
     "eyebrow": "回饋詳情",

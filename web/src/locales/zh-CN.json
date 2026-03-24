@@ -238,7 +238,8 @@
     "previous": "上一页",
     "next": "下一页",
     "retry": "重试",
-    "close": "关闭"
+    "close": "关闭",
+    "notificationSettings": "通知设置"
   },
   "submit": {
     "eyebrow": "反馈提交",
@@ -286,6 +287,21 @@
     "waitingResponse": "💬 开发者已回复，等待您的操作",
     "closed": "✅ 此反馈已关闭，如有需要可继续回复",
     "statusChanged": "状态已更新"
+  },
+  "notifPrefs": {
+    "eyebrow": "设置",
+    "title": "通知偏好设置",
+    "description": "选择您希望接收哪些关于反馈的邮件通知。",
+    "notifyOnReply": "回复通知",
+    "notifyOnReplyHint": "当开发者回复您的反馈时，收到邮件通知",
+    "notifyOnStatusChange": "状态更新",
+    "notifyOnStatusChangeHint": "当您的反馈状态发生变化时，收到邮件通知",
+    "notifyOnClose": "关闭通知",
+    "notifyOnCloseHint": "当您的反馈被关闭时，收到邮件通知",
+    "loadError": "加载通知偏好设置失败",
+    "saveError": "保存失败，请重试",
+    "saveSuccess": "已保存",
+    "backToHistory": "返回我的反馈"
   },
   "thread": {
     "eyebrow": "反馈详情",

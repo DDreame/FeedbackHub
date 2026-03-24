@@ -142,6 +142,9 @@ export function FeedbackHistoryPage() {
       <section className="detail-card">
         <span className="eyebrow">{t('history.eyebrow')}</span>
         <h1>{t('history.title')}</h1>
+        <Link to="/notifications" className="notif-prefs-link">
+          {t('history.notificationSettings')}
+        </Link>
 
         {error && (
           <div className="error-message" role="alert">

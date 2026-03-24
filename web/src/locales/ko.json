@@ -188,7 +188,8 @@
     "previous": "‹ 이전",
     "next": "다음 ›",
     "retry": "다시 시도",
-    "close": "닫기"
+    "close": "닫기",
+    "notificationSettings": "알림 설정"
   },
   "submit": {
     "eyebrow": "피드백 제출",
@@ -236,6 +237,21 @@
     "waitingResponse": "💬 개발자가 답변했습니다. 조치를 기다리고 있습니다.",
     "closed": "✅ 이 피드백은 종료되었습니다. 필요하면 계속 답변할 수 있습니다.",
     "statusChanged": "상태가 업데이트되었습니다"
+  },
+  "notifPrefs": {
+    "eyebrow": "설정",
+    "title": "알림 설정",
+    "description": "피드백에 대한 이메일 알림을 받을 항목을 선택하세요.",
+    "notifyOnReply": "답변 알림",
+    "notifyOnReplyHint": "개발자가 피드백에 답변하면 이메일로 알림을 받습니다",
+    "notifyOnStatusChange": "상태 업데이트",
+    "notifyOnStatusChangeHint": "피드백 상태가 변경되면 이메일로 알림을 받습니다",
+    "notifyOnClose": "종료 알림",
+    "notifyOnCloseHint": "피드백이 종료되면 이메일로 알림을 받습니다",
+    "loadError": "알림 설정을 불러오지 못했습니다",
+    "saveError": "저장에 실패했습니다. 다시 시도해 주세요",
+    "saveSuccess": "저장됨",
+    "backToHistory": "내 피드백으로 돌아가기"
   },
   "thread": {
     "eyebrow": "피드백 상세",

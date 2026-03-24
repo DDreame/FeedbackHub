@@ -239,7 +239,8 @@
     "previous": "‹ Previous",
     "next": "Next ›",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "notificationSettings": "Notification Settings"
   },
   "submit": {
     "eyebrow": "Submit Feedback",
@@ -287,6 +288,21 @@
     "waitingResponse": "💬 The developer has responded, awaiting your action.",
     "closed": "✅ This feedback has been closed. You can continue to reply if needed.",
     "statusChanged": "Status updated"
+  },
+  "notifPrefs": {
+    "eyebrow": "Settings",
+    "title": "Notification Preferences",
+    "description": "Choose which email notifications you want to receive about your feedback.",
+    "notifyOnReply": "Replies",
+    "notifyOnReplyHint": "Get notified when a developer replies to your feedback",
+    "notifyOnStatusChange": "Status Updates",
+    "notifyOnStatusChangeHint": "Get notified when your feedback status changes",
+    "notifyOnClose": "Closure",
+    "notifyOnCloseHint": "Get notified when your feedback is closed",
+    "loadError": "Failed to load notification preferences",
+    "saveError": "Failed to save — please try again",
+    "saveSuccess": "Saved",
+    "backToHistory": "Back to My Feedback"
   },
   "thread": {
     "eyebrow": "Feedback Details",

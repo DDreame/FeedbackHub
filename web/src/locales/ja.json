@@ -188,7 +188,8 @@
     "previous": "‹ 前へ",
     "next": "次へ ›",
     "retry": "再試行",
-    "close": "閉じる"
+    "close": "閉じる",
+    "notificationSettings": "通知設定"
   },
   "submit": {
     "eyebrow": "フィードバック送信",
@@ -236,6 +237,21 @@
     "waitingResponse": "💬 開発者が返信しました。あなたの操作をお待ちください。",
     "closed": "✅ このフィードバックはクローズされました。必要に応じて返信できます。",
     "statusChanged": "ステータスが更新されました"
+  },
+  "notifPrefs": {
+    "eyebrow": "設定",
+    "title": "通知偏好設定",
+    "description": "フィードバックに関するメール通知を受け取るかどうかを選択してください。",
+    "notifyOnReply": "返信通知",
+    "notifyOnReplyHint": "開発者がフィードバックに返信した時、メールで通知を受け取る",
+    "notifyOnStatusChange": "ステータス更新",
+    "notifyOnStatusChangeHint": "フィードバックのステータスが変化した時、メールで通知を受け取る",
+    "notifyOnClose": "クローズ通知",
+    "notifyOnCloseHint": "フィードバックがクローズされた時、メールで通知を受け取る",
+    "loadError": "通知設定の読み込みに失敗しました",
+    "saveError": "保存に失敗しました。もう一度お試しください",
+    "saveSuccess": "保存しました",
+    "backToHistory": "マイフィードバックに戻る"
   },
   "thread": {
     "eyebrow": "フィードバック詳細",
