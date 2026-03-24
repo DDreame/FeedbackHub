@@ -39,6 +39,7 @@ export interface CreateThreadAtomicRequest {
 export interface CreateThreadAtomicResponse {
   thread_id: string;
   message_id?: string;
+  reference_number: string;
 }
 
 export interface ThreadResponse {
@@ -461,10 +462,17 @@ export interface PublicStatusResponse {
   status: string;
   category: string;
   latest_public_message_at: string;
+  reference_number?: string;
 }
 
-export async function getPublicThreadStatus(threadId: string): Promise<PublicStatusResponse> {
-  const response = await fetch(`${API_BASE}/public/threads/${threadId}/status`, {
+export async function getPublicThreadStatus(identifier: string): Promise<PublicStatusResponse> {
+  // Support both UUID and reference_number (FB-XXXXXX) formats
+  const isFBRef = /^FB-[A-Z]{6}$/i.test(identifier.trim());
+  const endpoint = isFBRef
+    ? `${API_BASE}/public/threads/by-ref/${encodeURIComponent(identifier.trim().toUpperCase())}/status`
+    : `${API_BASE}/public/threads/${identifier}/status`;
+
+  const response = await fetch(endpoint, {
     method: 'GET',
   });
 

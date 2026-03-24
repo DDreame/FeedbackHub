@@ -139,7 +139,7 @@ export function StatusCheckPage() {
           <div className="status-check-result">
             <div className="status-check-header">
               <span className="status-check-ref">
-                {t('statusCheck.referenceNumber')}: <strong>{formatRefNumber(result.thread_id)}</strong>
+                {t('statusCheck.referenceNumber')}: <strong>{result.reference_number || formatRefNumber(result.thread_id)}</strong>
               </span>
               <StatusBadge status={result.status} />
             </div>

@@ -5,7 +5,6 @@ import {
   createThreadAtomic,
   STATUS_LABELS,
 } from '../services/api';
-import { formatRefNumber } from '../utils/formatRefNumber';
 
 const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -19,6 +18,7 @@ type Step = 'category' | 'form' | 'confirmation';
 
 interface SubmitResult {
   threadId: string;
+  referenceNumber: string;
 }
 
 interface Category {
@@ -162,7 +162,7 @@ export function FeedbackSubmitPage() {
         allowContact ? contact : undefined
       );
 
-      setSubmitResult({ threadId: result.thread_id });
+      setSubmitResult({ threadId: result.thread_id, referenceNumber: result.reference_number });
       setStep('confirmation');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('submit.error'));
@@ -378,7 +378,7 @@ export function FeedbackSubmitPage() {
               <div className="detail-row">
                 <span className="detail-label">{t('submit.referenceNumber')}</span>
                 <span className="detail-value" title={submitResult.threadId}>
-                  {formatRefNumber(submitResult.threadId)}
+                  {submitResult.referenceNumber}
                 </span>
               </div>
               <div className="detail-row">
