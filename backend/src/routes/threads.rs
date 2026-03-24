@@ -1282,6 +1282,56 @@ async fn get_public_thread_status(
     }))
 }
 
+/// GET /v1/public/threads/by-reference/:reference_number/status
+/// Public endpoint to check thread status by human-readable reference number (#t11)
+async fn get_public_thread_status_by_reference(
+    State(state): State<AppState>,
+    Path(reference_number): Path<String>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    #[derive(Serialize)]
+    struct PublicStatusByRefResponse {
+        thread_id: Uuid,
+        reference_number: String,
+        status: String,
+        category: String,
+        latest_public_message_at: DateTime<Utc>,
+    }
+
+    let row: Option<(Uuid, String, String, DateTime<Utc>)> = sqlx::query_as(
+        r#"
+        SELECT id, status, category, latest_public_message_at
+        FROM feedback_threads
+        WHERE reference_number = $1 AND status != 'deleted'
+        "#,
+    )
+    .bind(&reference_number)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    let row = row.ok_or((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: "thread not found".to_string(),
+        }),
+    ))?;
+
+    Ok(Json(PublicStatusByRefResponse {
+        thread_id: row.0,
+        reference_number,
+        status: row.1,
+        category: row.2,
+        latest_public_message_at: row.3,
+    }))
+}
+
 // ---------------------------------------------------------------------------
 // Reporter notification preferences
 // ---------------------------------------------------------------------------
@@ -1472,6 +1522,10 @@ pub fn thread_routes(state: AppState) -> Router {
         .route(
             "/v1/public/threads/{thread_id}/status",
             get(get_public_thread_status),
+        )
+        .route(
+            "/v1/public/threads/by-reference/{reference_number}/status",
+            get(get_public_thread_status_by_reference),
         )
         // Anonymous feedback (no auth required)
         .route(

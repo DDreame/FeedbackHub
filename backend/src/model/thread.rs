@@ -124,6 +124,8 @@ pub struct FeedbackThread {
     pub last_internal_note_at: Option<DateTime<Utc>>,
     // Soft delete recovery tracking
     pub deleted_at: Option<DateTime<Utc>>,
+    // Human-readable reference number (e.g. FB-ABCDEF)
+    pub reference_number: Option<String>,
 }
 
 impl FeedbackThread {
@@ -255,6 +257,7 @@ pub struct ThreadResponse {
     pub category: String,
     pub status: String,
     pub summary: String,
+    pub reference_number: Option<String>,
     pub latest_public_message_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -272,6 +275,7 @@ impl From<FeedbackThread> for ThreadResponse {
             category: t.category,
             status: t.status,
             summary: t.summary,
+            reference_number: t.reference_number,
             latest_public_message_at: t.latest_public_message_at,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -290,6 +294,7 @@ pub struct DeveloperThreadResponse {
     pub category: String,
     pub status: String,
     pub summary: String,
+    pub reference_number: Option<String>,
     pub latest_public_message_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -310,6 +315,7 @@ impl From<FeedbackThread> for DeveloperThreadResponse {
             category: t.category,
             status: t.status,
             summary: t.summary,
+            reference_number: t.reference_number,
             latest_public_message_at: t.latest_public_message_at,
             created_at: t.created_at,
             updated_at: t.updated_at,
@@ -451,6 +457,7 @@ mod tests {
             is_spam: false,
             last_internal_note_at: None,
             deleted_at: None,
+            reference_number: Some("FB-TESTAA".to_string()),
         };
         let ctx = thread.context();
         assert_eq!(ctx.app_version, "1.0.0");
@@ -484,6 +491,7 @@ mod tests {
             is_spam: false,
             last_internal_note_at: None,
             deleted_at: None,
+            reference_number: Some("FB-TESTBB".to_string()),
         };
         let response: ThreadResponse = thread.into();
         assert_eq!(response.category, "bug");
