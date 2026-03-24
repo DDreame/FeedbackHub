@@ -429,6 +429,7 @@ mod tests {
         let thread = FeedbackThread {
             id: Uuid::new_v4(),
             reporter_id: Uuid::new_v4(),
+            app_id: None,
             reporter_contact: None,
             category: "bug".to_string(),
             status: "received".to_string(),
@@ -449,6 +450,7 @@ mod tests {
             assignee_id: None,
             is_spam: false,
             last_internal_note_at: None,
+            deleted_at: None,
         };
         let ctx = thread.context();
         assert_eq!(ctx.app_version, "1.0.0");
@@ -460,6 +462,7 @@ mod tests {
         let thread = FeedbackThread {
             id: Uuid::new_v4(),
             reporter_id: Uuid::new_v4(),
+            app_id: None,
             reporter_contact: Some("test@example.com".to_string()),
             category: "bug".to_string(),
             status: "received".to_string(),
@@ -480,6 +483,7 @@ mod tests {
             assignee_id: None,
             is_spam: false,
             last_internal_note_at: None,
+            deleted_at: None,
         };
         let response: ThreadResponse = thread.into();
         assert_eq!(response.category, "bug");
