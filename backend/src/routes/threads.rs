@@ -1294,12 +1294,13 @@ async fn get_public_thread_status_by_reference(
         reference_number: String,
         status: String,
         category: String,
+        summary: String,
         latest_public_message_at: DateTime<Utc>,
     }
 
-    let row: Option<(Uuid, String, String, DateTime<Utc>)> = sqlx::query_as(
+    let row: Option<(Uuid, String, String, String, DateTime<Utc>)> = sqlx::query_as(
         r#"
-        SELECT id, status, category, latest_public_message_at
+        SELECT id, status, category, summary, latest_public_message_at
         FROM feedback_threads
         WHERE reference_number = $1 AND status != 'deleted'
         "#,
@@ -1328,7 +1329,8 @@ async fn get_public_thread_status_by_reference(
         reference_number,
         status: row.1,
         category: row.2,
-        latest_public_message_at: row.3,
+        summary: row.3,
+        latest_public_message_at: row.4,
     }))
 }
 
