@@ -97,6 +97,7 @@ pub struct ContextSnapshot {
 pub struct FeedbackThread {
     pub id: Uuid,
     pub reporter_id: Uuid,
+    #[sqlx(default)]
     pub app_id: Option<Uuid>,
     pub reporter_contact: Option<String>,
     pub category: String,
@@ -123,6 +124,7 @@ pub struct FeedbackThread {
     // Unread tracking for internal notes
     pub last_internal_note_at: Option<DateTime<Utc>>,
     // Soft delete recovery tracking
+    #[sqlx(default)]
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
