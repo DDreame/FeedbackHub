@@ -22,6 +22,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: feedback_backend
+    ports:
+      - "127.0.0.1:3000:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       HOST: "0.0.0.0"
@@ -44,18 +46,8 @@ services:
       context: ./web
       dockerfile: Dockerfile
     container_name: feedback_frontend
-    restart: unless-stopped
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: feedback_tunnel
-    command: tunnel run
-    volumes:
-      - /Users/ddreame/.cloudflared/198f2bec-490b-482e-97db-8d940d27ad3b.json:/etc/cloudflared/creds.json:ro
-      - /Users/ddreame/.cloudflared/config-feedbackhub.yml:/etc/cloudflared/config.yml:ro
-    depends_on:
-      - backend
-      - frontend
+    ports:
+      - "127.0.0.1:8080:80"
     restart: unless-stopped
 
 volumes:
