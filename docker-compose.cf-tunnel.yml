@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: feedback_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-feedback}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-feedback}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-feedback} -d ${POSTGRES_DB:-feedback}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: feedback_backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-https://feedback.dreamful.life}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@feedback.dreamful.life}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ThenApp Feedback}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: feedback_frontend
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: feedback_tunnel
+    command: tunnel run
+    volumes:
+      - /Users/ddreame/.cloudflared/198f2bec-490b-482e-97db-8d940d27ad3b.json:/etc/cloudflared/creds.json:ro
+      - /Users/ddreame/.cloudflared/config-feedbackhub.yml:/etc/cloudflared/config.yml:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

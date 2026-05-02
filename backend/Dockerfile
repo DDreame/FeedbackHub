@@ -1,5 +1,5 @@
 # Stage 1: Build the Rust binary
-FROM rust:1.85-slim-bookworm AS builder
+FROM rust:1.88-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev \
@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY Cargo.toml Cargo.lock* ./
 COPY src/ src/
+COPY migrations/ migrations/
 
 # Build release binary
 RUN cargo build --release --bin feedback-system-backend
