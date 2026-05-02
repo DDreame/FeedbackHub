@@ -6,7 +6,7 @@ pub mod routes;
 pub mod webhook;
 
 use axum::{Json, Router, extract::State, middleware, routing::get};
-use axum::extract::{FromRequest, rejection::JsonRejection};
+use axum::extract::FromRequest;
 use axum::http::StatusCode;
 use axum::http::Request;
 use routes::apps::app_routes;
@@ -15,6 +15,8 @@ use routes::feedback::{AppState, RateLimiter, api_key_auth, feedback_routes};
 use routes::project::project_routes;
 use routes::tags::tag_routes;
 use serde::{de::DeserializeOwned, Serialize};
+use tower_http::trace::TraceLayer;
+use tracing::Level;
 
 /// A JSON extractor that returns sanitised error messages instead of
 /// exposing internal field names on deserialisation failures.
@@ -28,20 +30,36 @@ where
     type Rejection = (StatusCode, Json<serde_json::Value>);
 
     async fn from_request(req: Request<axum::body::Body>, state: &S) -> Result<Self, Self::Rejection> {
-        match Json::<T>::from_request(req, state).await {
-            Ok(Json(value)) => Ok(SafeJson(value)),
-            Err(rejection) => {
-                let status = rejection.status();
-                let message = match &rejection {
-                    JsonRejection::JsonDataError(_) => "invalid request body — check required fields",
-                    JsonRejection::JsonSyntaxError(_) => "invalid JSON syntax in request body",
-                    JsonRejection::MissingJsonContentType(_) => "missing Content-Type: application/json header",
-                    JsonRejection::BytesRejection(_) => "failed to read request body",
-                    _ => "invalid request body",
-                };
+        // Buffer body so we can log the raw JSON on parse failure
+        use axum::body::Bytes;
+        let (parts, body) = req.into_parts();
+        let bytes = match Bytes::from_request(
+            Request::from_parts(parts, body),
+            state,
+        )
+        .await
+        {
+            Ok(b) => b,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": format!("failed to read body: {e}") })),
+                ));
+            }
+        };
+
+        let body_str = String::from_utf8_lossy(&bytes);
+        match serde_json::from_slice::<T>(&bytes) {
+            Ok(value) => Ok(SafeJson(value)),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    body = %body_str,
+                    "JSON deserialization failed"
+                );
                 Err((
-                    status,
-                    Json(serde_json::json!({ "error": message })),
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(serde_json::json!({ "error": "invalid request body — check required fields" })),
                 ))
             }
         }
@@ -79,12 +97,51 @@ pub fn app_with_state(state: AppState) -> Router {
     let dev_api = dev_routes(state.clone())
         .merge(tag_routes(state5))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth));
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(|request: &Request<_>| {
+            let method = request.method().to_string();
+            let uri = request.uri().to_string();
+            let reporter_id = request
+                .headers()
+                .get("X-Reporter-Id")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("-");
+            tracing::span!(
+                Level::INFO,
+                "request",
+                method = %method,
+                uri = %uri,
+                reporter_id = %reporter_id,
+            )
+        })
+        .on_request(|request: &Request<_>, _span: &tracing::Span| {
+            tracing::info!(
+                method = %request.method(),
+                uri = %request.uri(),
+                x_reporter_id = request.headers()
+                    .get("X-Reporter-Id")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("-"),
+                x_api_key = if request.headers().get("x-api-key").is_some() { "***" } else { "-" },
+                "--> incoming request",
+            );
+        })
+        .on_response(
+            |response: &axum::response::Response, latency: std::time::Duration, _span: &tracing::Span| {
+                tracing::info!(
+                    status = response.status().as_u16(),
+                    latency_ms = latency.as_millis(),
+                    "<-- response",
+                );
+            },
+        );
     health
         .merge(app_routes(state))
         .merge(feedback_routes(state2))
         .merge(project_routes(state3))
         .merge(routes::threads::thread_routes(state4))
         .merge(dev_api)
+        .layer(trace_layer)
 }
 
 fn create_pool_from_env() -> sqlx::PgPool {

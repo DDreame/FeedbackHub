@@ -1,4 +1,4 @@
-feedback.dreamful.life {
+http://feedback.dreamful.life {
     # API proxy to Rust backend
     handle_path /api/* {
         reverse_proxy backend:3000

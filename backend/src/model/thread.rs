@@ -159,16 +159,17 @@ pub struct FeedbackMessage {
 // ---------------------------------------------------------------------------
 
 /// Input for creating a new feedback thread (SDK → API).
-/// reporter_id is accepted from header (X-Reporter-Id), body field is informational.
+/// reporter_id is accepted from header (X-Reporter-Id); body field is ignored.
+/// context is Option because Flutter sends `"context": null` explicitly.
 #[derive(Debug, Deserialize)]
 pub struct CreateThreadRequest {
     #[serde(default)]
-    pub reporter_id: Uuid,
+    pub reporter_id: Option<String>,
     pub reporter_contact: Option<String>,
     pub category: String,
     pub summary: String,
     #[serde(default)]
-    pub context: ContextSnapshotInput,
+    pub context: Option<ContextSnapshotInput>,
 }
 
 /// Input for anonymous thread creation (no reporter identity required).
@@ -177,7 +178,8 @@ pub struct CreateThreadAnonymousRequest {
     pub reporter_contact: Option<String>,
     pub category: String,
     pub summary: String,
-    pub context: ContextSnapshotInput,
+    #[serde(default)]
+    pub context: Option<ContextSnapshotInput>,
 }
 
 /// Input for atomic create-thread-with-message operation.
@@ -201,7 +203,7 @@ pub struct CreateThreadAtomicResponse {
     pub reference_number: String,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ContextSnapshotInput {
     #[serde(default)]
     pub app_version: String,
