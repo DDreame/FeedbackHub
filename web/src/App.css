@@ -1099,10 +1099,14 @@
 .theme-toggle-wrapper {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
   margin-bottom: -1rem;
 }
 
-.theme-toggle {
+.theme-toggle,
+.language-toggle {
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(64, 51, 41, 0.12);
   border-radius: 999px;
@@ -1111,14 +1115,17 @@
   font-size: 1.1rem;
   transition: all 0.2s ease;
   backdrop-filter: blur(8px);
+  color: var(--ink-strong);
 }
 
-.theme-toggle:hover {
+.theme-toggle:hover,
+.language-toggle:hover {
   border-color: var(--accent);
   transform: scale(1.05);
 }
 
-[data-theme="dark"] .theme-toggle {
+[data-theme="dark"] .theme-toggle,
+[data-theme="dark"] .language-toggle {
   background: rgba(15, 20, 25, 0.95);
   border-color: rgba(255, 255, 255, 0.15);
 }
