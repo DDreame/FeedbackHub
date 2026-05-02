@@ -85,8 +85,7 @@ export function FeedbackHistoryPage() {
 
   useEffect(() => {
     fetchThreads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchThreads]);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);

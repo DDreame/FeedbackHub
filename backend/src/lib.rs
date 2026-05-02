@@ -6,12 +6,47 @@ pub mod routes;
 pub mod webhook;
 
 use axum::{Json, Router, middleware, routing::get};
+use axum::extract::{FromRequest, rejection::JsonRejection};
+use axum::http::StatusCode;
+use axum::http::Request;
 use routes::apps::app_routes;
 use routes::developer::dev_routes;
 use routes::feedback::{AppState, RateLimiter, api_key_auth, feedback_routes};
 use routes::project::project_routes;
 use routes::tags::tag_routes;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
+
+/// A JSON extractor that returns sanitised error messages instead of
+/// exposing internal field names on deserialisation failures.
+pub struct SafeJson<T>(pub T);
+
+impl<T, S> FromRequest<S> for SafeJson<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<serde_json::Value>);
+
+    async fn from_request(req: Request<axum::body::Body>, state: &S) -> Result<Self, Self::Rejection> {
+        match Json::<T>::from_request(req, state).await {
+            Ok(Json(value)) => Ok(SafeJson(value)),
+            Err(rejection) => {
+                let status = rejection.status();
+                let message = match &rejection {
+                    JsonRejection::JsonDataError(_) => "invalid request body — check required fields",
+                    JsonRejection::JsonSyntaxError(_) => "invalid JSON syntax in request body",
+                    JsonRejection::MissingJsonContentType(_) => "missing Content-Type: application/json header",
+                    JsonRejection::BytesRejection(_) => "failed to read request body",
+                    _ => "invalid request body",
+                };
+                Err((
+                    status,
+                    Json(serde_json::json!({ "error": message })),
+                ))
+            }
+        }
+    }
+}
 
 #[derive(Serialize)]
 struct HealthResponse {

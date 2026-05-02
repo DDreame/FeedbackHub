@@ -68,6 +68,7 @@ export function ConsoleInboxPage() {
       const data = await devListThreads({
         status: statusFilter || undefined,
         category: categoryFilter || undefined,
+        keyword: keyword || undefined,
         limit: 20,
         offset: (page - 1) * 20,
       });
@@ -82,7 +83,7 @@ export function ConsoleInboxPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, statusFilter, categoryFilter, hasApiKey, t]);
+  }, [page, statusFilter, categoryFilter, keyword, hasApiKey, t]);
 
   useEffect(() => {
     fetchThreads();
