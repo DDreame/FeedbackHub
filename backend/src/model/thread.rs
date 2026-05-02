@@ -159,12 +159,15 @@ pub struct FeedbackMessage {
 // ---------------------------------------------------------------------------
 
 /// Input for creating a new feedback thread (SDK → API).
+/// reporter_id is accepted from header (X-Reporter-Id), body field is informational.
 #[derive(Debug, Deserialize)]
 pub struct CreateThreadRequest {
+    #[serde(default)]
     pub reporter_id: Uuid,
     pub reporter_contact: Option<String>,
     pub category: String,
     pub summary: String,
+    #[serde(default)]
     pub context: ContextSnapshotInput,
 }
 
@@ -198,14 +201,19 @@ pub struct CreateThreadAtomicResponse {
     pub reference_number: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ContextSnapshotInput {
+    #[serde(default)]
     pub app_version: String,
     pub build_number: Option<String>,
+    #[serde(default)]
     pub os_name: String,
+    #[serde(default)]
     pub os_version: String,
+    #[serde(default)]
     pub device_model: String,
     pub locale: Option<String>,
+    #[serde(default)]
     pub current_route: String,
     pub reporter_account_id: Option<String>,
 }

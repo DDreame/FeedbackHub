@@ -68,11 +68,21 @@ async fn maybe_send_confirmation_email(
     }
 }
 
+/// Accept any string identity and deterministically hash to UUID for DB storage.
+/// This allows ThenApp's base64url identity format (HMAC-SHA256 derived) to work
+/// with FeedbackHub's UUID-based reporter model.
 fn extract_reporter_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
         .get("X-Reporter-Id")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s).ok())
+        .map(|s| hash_to_uuid(s))
+}
+
+/// Deterministically hash a string identity to a UUID (SHA-256 → first 16 bytes).
+fn hash_to_uuid(reporter_id: &str) -> Uuid {
+    use sha2::Digest;
+    let hash = sha2::Sha256::digest(reporter_id.as_bytes());
+    Uuid::from_bytes(hash[..16].try_into().unwrap())
 }
 
 #[derive(Debug, serde::Serialize)]
