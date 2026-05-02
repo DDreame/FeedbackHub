@@ -19,6 +19,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tower-http = { version = "0.6", features = ["trace"] }
 lettre = { version = "0.11", features = ["tokio1-native-tls", "smtp-transport"] }
+sentry = { version = "0.35", features = ["tracing"] }
+sentry-tracing = "0.35"
 
 [dev-dependencies]
 http-body-util = "0.1.3"

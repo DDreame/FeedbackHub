@@ -3,9 +3,23 @@ use tracing_subscriber::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Sentry error tracking
+    let sentry_dsn = std::env::var("SENTRY_DSN").unwrap_or_default();
+    let _sentry = sentry::init(sentry::ClientOptions {
+        dsn: if sentry_dsn.is_empty() {
+            None
+        } else {
+            Some(sentry_dsn.parse().expect("invalid SENTRY_DSN"))
+        },
+        release: sentry::release_name!(),
+        traces_sample_rate: 0.1,
+        ..Default::default()
+    });
+
     // Structured JSON logging for production
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().json())
+        .with(sentry_tracing::layer())
         .with(tracing_subscriber::EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| "info".into()))
         .init();
