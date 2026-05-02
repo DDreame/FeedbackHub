@@ -5,7 +5,7 @@ pub mod model;
 pub mod routes;
 pub mod webhook;
 
-use axum::{Json, Router, middleware, routing::get};
+use axum::{Json, Router, extract::State, middleware, routing::get};
 use routes::apps::app_routes;
 use routes::developer::dev_routes;
 use routes::feedback::{AppState, RateLimiter, api_key_auth, feedback_routes};
@@ -17,6 +17,7 @@ use serde::Serialize;
 struct HealthResponse {
     status: &'static str,
     service: &'static str,
+    database: &'static str,
 }
 
 pub fn app() -> Router {
@@ -35,7 +36,10 @@ pub fn app_with_state(state: AppState) -> Router {
     let state3 = state.clone();
     let state4 = state.clone();
     let state5 = state.clone();
-    let health = Router::new().route("/api/health", get(health));
+    let state6 = state.clone();
+    let health = Router::new()
+        .route("/api/health", get(health))
+        .with_state(state6);
     // Dev routes protected by API key auth middleware
     let dev_api = dev_routes(state.clone())
         .merge(tag_routes(state5))
@@ -56,10 +60,21 @@ fn create_pool_from_env() -> sqlx::PgPool {
         .expect("failed to create database pool")
 }
 
-async fn health() -> Json<HealthResponse> {
+async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
+    let database = match sqlx::query("SELECT 1")
+        .execute(&state.db)
+        .await
+    {
+        Ok(_) => "ok",
+        Err(e) => {
+            tracing::error!(%e, "Database health check failed");
+            "error"
+        }
+    };
     Json(HealthResponse {
-        status: "ok",
+        status: if database == "ok" { "ok" } else { "degraded" },
         service: "feedback-system-backend",
+        database,
     })
 }
 
@@ -76,9 +91,20 @@ mod tests {
     use tower::util::ServiceExt;
 
     use super::health;
+    use crate::routes::feedback::{AppState, RateLimiter};
 
     fn health_only_router() -> Router {
-        Router::new().route("/api/health", get(health))
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy("postgres://localhost:5432/test")
+            .expect("should create lazy pool");
+        let state = AppState {
+            db: pool,
+            rate_limiter: RateLimiter::new(10, 60),
+        };
+        Router::new()
+            .route("/api/health", get(health))
+            .with_state(state)
     }
 
     #[tokio::test]
@@ -105,7 +131,8 @@ mod tests {
         let payload: Value =
             serde_json::from_slice(&body).expect("health response should be valid json");
 
-        assert_eq!(payload["status"], "ok");
+        assert!(payload["status"].as_str().is_some());
         assert_eq!(payload["service"], "feedback-system-backend");
+        assert!(payload["database"].as_str().is_some());
     }
 }

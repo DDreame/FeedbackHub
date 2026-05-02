@@ -1,0 +1,19 @@
+feedback.dreamful.life {
+    # API proxy to Rust backend
+    handle_path /api/* {
+        reverse_proxy backend:3000
+    }
+    handle_path /v1/* {
+        reverse_proxy backend:3000
+    }
+
+    # SPA — serve frontend nginx
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Logging
+    log {
+        output file /data/access.log
+    }
+}
