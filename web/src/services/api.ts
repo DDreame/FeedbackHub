@@ -538,6 +538,7 @@ export interface DevThreadFilterParams {
   status?: string;
   category?: string;
   assignee_id?: string;
+  keyword?: string;
   limit?: number;
   offset?: number;
 }
@@ -578,6 +579,7 @@ export async function devListThreads(
   if (filters?.status) params.set('status', filters.status);
   if (filters?.category) params.set('category', filters.category);
   if (filters?.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters?.keyword) params.set('keyword', filters.keyword);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
 

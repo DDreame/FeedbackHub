@@ -15,6 +15,7 @@ use crate::model::thread::{
     CreateThreadAtomicResponse, CreateThreadRequest, CreateThreadResponse, FeedbackMessage,
     FeedbackThread, MessageResponse, ThreadResponse, ThreadStatus,
 };
+use crate::SafeJson;
 
 #[allow(unused_imports)]
 use super::feedback::{AppState, RateLimiter};
@@ -107,7 +108,7 @@ impl From<String> for ErrorResponse {
 async fn create_thread(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<CreateThreadRequest>,
+    SafeJson(payload): SafeJson<CreateThreadRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Auth: require X-Reporter-Id header and use it as authoritative reporter_id
     let reporter_id = extract_reporter_id(&headers).ok_or((
@@ -230,7 +231,7 @@ async fn create_thread(
 async fn create_thread_atomic(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<CreateThreadAtomicRequest>,
+    SafeJson(payload): SafeJson<CreateThreadAtomicRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let reporter_id = extract_reporter_id(&headers).ok_or((
         StatusCode::UNAUTHORIZED,
@@ -414,7 +415,7 @@ async fn create_thread_atomic(
 /// Creates an anonymous feedback thread without requiring reporter identity.
 async fn create_thread_anonymous(
     State(state): State<AppState>,
-    Json(payload): Json<CreateThreadAnonymousRequest>,
+    SafeJson(payload): SafeJson<CreateThreadAnonymousRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let id = Uuid::now_v7();
     let anonymous_reporter_id = Uuid::now_v7(); // Synthetic ID for anonymous threads
@@ -798,7 +799,7 @@ async fn add_message(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(thread_id): Path<Uuid>,
-    Json(payload): Json<AddMessageRequest>,
+    SafeJson(payload): SafeJson<AddMessageRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let reporter_id = extract_reporter_id(&headers).ok_or((
         StatusCode::UNAUTHORIZED,
@@ -1238,8 +1239,17 @@ async fn recover_my_thread(
 /// Public endpoint to check thread status without authentication (#t85)
 async fn get_public_thread_status(
     State(state): State<AppState>,
-    Path(thread_id): Path<Uuid>,
+    Path(thread_id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let thread_id = Uuid::parse_str(&thread_id_str).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "thread not found".to_string(),
+            }),
+        )
+    })?;
+
     #[derive(Serialize)]
     struct PublicStatusResponse {
         thread_id: Uuid,
@@ -1353,7 +1363,7 @@ async fn get_notification_prefs(
 async fn patch_notification_prefs(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<UpdateNotificationPrefsRequest>,
+    SafeJson(payload): SafeJson<UpdateNotificationPrefsRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let reporter_id = extract_reporter_id(&headers).ok_or((
         StatusCode::UNAUTHORIZED,

@@ -1,7 +1,9 @@
 {
   "app": {
     "loading": "載入中...",
-    "loadError": "載入失敗"
+    "loadError": "載入失敗",
+    "pageNotFound": "頁面未找到",
+    "backToHome": "返回首頁"
   },
   "theme": {
     "light": "淺色",

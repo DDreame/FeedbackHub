@@ -163,6 +163,19 @@ function HomePage() {
   );
 }
 
+function NotFoundPage() {
+  const { t } = useTranslation();
+  return (
+    <main className="shell">
+      <section className="detail-card" style={{ textAlign: 'center' }}>
+        <h1>404</h1>
+        <p>{t('app.pageNotFound')}</p>
+        <Link to="/" className="btn-primary">{t('app.backToHome')}</Link>
+      </section>
+    </main>
+  );
+}
+
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem(THEME_KEY);
@@ -197,6 +210,7 @@ function App() {
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/status-check" element={<StatusCheckPage />} />
         <Route path="/notifications" element={<NotificationPrefsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppShell>
   );

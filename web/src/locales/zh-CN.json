@@ -1,7 +1,9 @@
 {
   "app": {
     "loading": "加载中...",
-    "loadError": "加载失败"
+    "loadError": "加载失败",
+    "pageNotFound": "页面未找到",
+    "backToHome": "返回首页"
   },
   "theme": {
     "light": "浅色",

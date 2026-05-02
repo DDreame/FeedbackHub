@@ -1,7 +1,9 @@
 {
   "app": {
     "loading": "Loading...",
-    "loadError": "Failed to load"
+    "loadError": "Failed to load",
+    "pageNotFound": "Page not found",
+    "backToHome": "Back to Home"
   },
   "theme": {
     "light": "Light",
