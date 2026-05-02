@@ -215,7 +215,7 @@ describe('FeedbackHistoryPage', () => {
       renderHistoryPage('/history?status=received')
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /筛选 🔽/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /筛选/i })).toBeInTheDocument()
       })
     })
   })

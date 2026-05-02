@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { SunIcon, MoonIcon } from './components/icons'
 import { FeedbackSubmitPage } from './pages/FeedbackSubmitPage'
 import { FeedbackHistoryPage } from './pages/FeedbackHistoryPage'
 import { FeedbackThreadPage } from './pages/FeedbackThreadPage'
@@ -29,10 +30,18 @@ function ThemeToggle({ theme, onToggle }: { theme: string; onToggle: () => void 
       aria-label={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
       title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
     >
-      {theme === 'dark' ? '🌙' : '☀️'}
+      {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
     </button>
   );
 }
+
+const LANG_LABELS: Record<string, string> = {
+  'en': 'English',
+  'zh-CN': '中文',
+  'zh-TW': '繁體',
+  'ja': '日本語',
+  'ko': '한국어',
+};
 
 function LanguageToggle() {
   const [lang, setLang] = useState(getCurrentLanguage);
@@ -40,9 +49,9 @@ function LanguageToggle() {
     <button
       className="language-toggle"
       onClick={() => { toggleLanguage(); setLang(getCurrentLanguage()); }}
-      title={lang === 'zh-CN' ? 'English' : '中文'}
+      title={LANG_LABELS[lang] || lang}
     >
-      {lang === 'zh-CN' ? 'EN' : '中'}
+      {LANG_LABELS[lang] || lang}
     </button>
   );
 }

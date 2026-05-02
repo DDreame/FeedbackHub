@@ -17,6 +17,7 @@ import {
   type TagResponse,
 } from '../services/api';
 import { getDevApiKey } from '../services/api';
+import { UserIcon, MemoIcon, SendIcon } from '../components/icons';
 import i18n from '../i18n';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -348,7 +349,7 @@ export function ConsoleThreadPage() {
                   disabled={showAssignMenu}
                 >
                   {thread.assignee_id
-                    ? `👤 ${t('console.thread.assignee')}: ${thread.assignee_id.slice(0, 8)}`
+                    ? <><UserIcon /> {t('console.thread.assignee')}: {thread.assignee_id.slice(0, 8)}</>
                     : t('console.thread.assign')}
                 </button>
                 {showAssignMenu && (
@@ -492,7 +493,7 @@ export function ConsoleThreadPage() {
                 >
                   <div className="message-header">
                     <span className="message-author">
-                      {msg.is_internal ? '📝 ' : ''}{getAuthorLabel(msg.author_type, msg.is_internal)}
+                      {msg.is_internal ? <><MemoIcon /> </> : ''}{getAuthorLabel(msg.author_type, msg.is_internal)}
                     </span>
                     <span className="message-date">{formatDate(msg.created_at)}</span>
                   </div>
@@ -525,7 +526,7 @@ export function ConsoleThreadPage() {
               onClick={handleSendReply}
               disabled={!replyText.trim() || isSendingReply}
             >
-              {isSendingReply ? t('console.thread.sending') : t('console.thread.send')}
+              {isSendingReply ? t('console.thread.sending') : <><SendIcon /> {t('console.thread.send')}</>}
             </button>
           </div>
         </div>

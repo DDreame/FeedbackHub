@@ -7,6 +7,7 @@ import {
   type DeveloperThreadResponse,
 } from '../services/api';
 import { getDevApiKey } from '../services/api';
+import { UserIcon } from '../components/icons';
 import i18n from '../i18n';
 
 export function ConsoleInboxPage() {
@@ -417,7 +418,7 @@ export function ConsoleInboxPage() {
                         <span className="thread-contact">{thread.reporter_contact}</span>
                       )}
                       {thread.assignee_id && (
-                        <span className="thread-assignee">👤 {thread.assignee_id.slice(0, 8)}</span>
+                        <span className="thread-assignee"><UserIcon /> {thread.assignee_id.slice(0, 8)}</span>
                       )}
                     </div>
                   </button>

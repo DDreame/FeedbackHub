@@ -285,10 +285,10 @@
     "other": "Other"
   },
   "notification": {
-    "receivedSubmitted": "✅ Thank you! Your feedback has been received.",
-    "reviewStarted": "👀 The developer has viewed your feedback.",
-    "waitingResponse": "💬 The developer has responded, awaiting your action.",
-    "closed": "✅ This feedback has been closed. You can continue to reply if needed.",
+    "receivedSubmitted": "Thank you! Your feedback has been received.",
+    "reviewStarted": "The developer has viewed your feedback.",
+    "waitingResponse": "The developer has responded, awaiting your action.",
+    "closed": "This feedback has been closed. You can continue to reply if needed.",
     "statusChanged": "Status updated"
   },
   "notifPrefs": {
@@ -314,8 +314,8 @@
     "retry": "Retry",
     "noMessages": "No messages yet",
     "noFeedback": "Feedback not found",
-    "developer": "👨‍💻 Developer",
-    "you": "👤 You",
+    "developer": "Developer",
+    "you": "You",
     "attachmentAlt": "Attachment {{index}}",
     "replyPlaceholder": "Enter your reply...",
     "send": "Send",

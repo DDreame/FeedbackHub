@@ -284,10 +284,10 @@
     "other": "其他"
   },
   "notification": {
-    "receivedSubmitted": "✅ 感谢提交，您的反馈已收到",
-    "reviewStarted": "👀 开发者已查看您的反馈",
-    "waitingResponse": "💬 开发者已回复，等待您的操作",
-    "closed": "✅ 此反馈已关闭，如有需要可继续回复",
+    "receivedSubmitted": "感谢提交，您的反馈已收到",
+    "reviewStarted": "开发者已查看您的反馈",
+    "waitingResponse": "开发者已回复，等待您的操作",
+    "closed": "此反馈已关闭，如有需要可继续回复",
     "statusChanged": "状态已更新"
   },
   "notifPrefs": {
@@ -313,8 +313,8 @@
     "retry": "重试",
     "noMessages": "暂无消息记录",
     "noFeedback": "未找到反馈记录",
-    "developer": "👨‍💻 开发者",
-    "you": "👤 您",
+    "developer": "开发者",
+    "you": "您",
     "attachmentAlt": "附件 {{index}}",
     "replyPlaceholder": "输入您的回复...",
     "send": "发送",

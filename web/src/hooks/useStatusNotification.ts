@@ -8,10 +8,10 @@ export interface StatusNotification {
 }
 
 const STATUS_NOTIFICATION_MESSAGES: Record<StatusKey, string> = {
-  received: '✅ 感谢提交，您的反馈已收到',
-  in_review: '👀 开发者已查看您的反馈',
-  waiting_for_user: '💬 开发者已回复，等待您的操作',
-  closed: '✅ 此反馈已关闭，如有需要可继续回复',
+  received: '感谢提交，您的反馈已收到',
+  in_review: '开发者已查看您的反馈',
+  waiting_for_user: '开发者已回复，等待您的操作',
+  closed: '此反馈已关闭，如有需要可继续回复',
 };
 
 function getStatusKey(status: string): StatusKey | null {

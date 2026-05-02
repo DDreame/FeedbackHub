@@ -234,10 +234,10 @@
     "other": "其他"
   },
   "notification": {
-    "receivedSubmitted": "✅ 感謝提交，您的回饋已收到",
-    "reviewStarted": "👀 開發者已查看您的回饋",
-    "waitingResponse": "💬 開發者已回覆，等待您的操作",
-    "closed": "✅ 此回饋已關閉，如有需要可繼續回覆",
+    "receivedSubmitted": "感謝提交，您的回饋已收到",
+    "reviewStarted": "開發者已查看您的回饋",
+    "waitingResponse": "開發者已回覆，等待您的操作",
+    "closed": "此回饋已關閉，如有需要可繼續回覆",
     "statusChanged": "狀態已更新"
   },
   "notifPrefs": {
@@ -263,8 +263,8 @@
     "retry": "重試",
     "noMessages": "暫無訊息記錄",
     "noFeedback": "找不到回饋記錄",
-    "developer": "👨‍💻 開發者",
-    "you": "👤 您",
+    "developer": "開發者",
+    "you": "您",
     "attachmentAlt": "附件 {{index}}",
     "replyPlaceholder": "輸入您的回覆...",
     "send": "傳送",

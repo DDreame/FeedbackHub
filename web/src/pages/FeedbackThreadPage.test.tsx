@@ -217,7 +217,7 @@ describe('FeedbackThreadPage', () => {
       renderThreadPage()
 
       await waitFor(() => {
-        expect(screen.getByText('👤 您')).toBeInTheDocument()
+        expect(screen.getByText('您')).toBeInTheDocument()
       })
     })
 
@@ -228,7 +228,7 @@ describe('FeedbackThreadPage', () => {
       renderThreadPage()
 
       await waitFor(() => {
-        expect(screen.getByText('👨‍💻 开发者')).toBeInTheDocument()
+        expect(screen.getByText('开发者')).toBeInTheDocument()
       })
     })
 

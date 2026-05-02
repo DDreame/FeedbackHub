@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getDevApiKey, setDevApiKey, clearDevApiKey } from '../services/api';
+import { KeyIcon } from '../components/icons';
 
 export function ConsolePage() {
   const { t } = useTranslation();
@@ -19,7 +20,7 @@ export function ConsolePage() {
 
           <div className="console-key-status">
             <div className="key-saved-badge">
-              <span className="key-status-icon">🔑</span>
+              <span className="key-status-icon"><KeyIcon /></span>
               <span>{t('console.apiKeySaved')}</span>
             </div>
             <p className="key-hint">{t('console.apiKeyHint')}</p>

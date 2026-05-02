@@ -234,10 +234,10 @@
     "other": "その他"
   },
   "notification": {
-    "receivedSubmitted": "✅ ありがとうございます。フィードバックを受け取りました。",
-    "reviewStarted": "👀 開発者がフィードバックを閲覧しました。",
-    "waitingResponse": "💬 開発者が返信しました。あなたの操作をお待ちください。",
-    "closed": "✅ このフィードバックはクローズされました。必要に応じて返信できます。",
+    "receivedSubmitted": "ありがとうございます。フィードバックを受け取りました。",
+    "reviewStarted": "開発者がフィードバックを閲覧しました。",
+    "waitingResponse": "開発者が返信しました。あなたの操作をお待ちください。",
+    "closed": "このフィードバックはクローズされました。必要に応じて返信できます。",
     "statusChanged": "ステータスが更新されました"
   },
   "notifPrefs": {
@@ -263,8 +263,8 @@
     "retry": "再試行",
     "noMessages": "メッセージはまだありません",
     "noFeedback": "フィードバックが見つかりません",
-    "developer": "👨‍💻 開発者",
-    "you": "👤 あなた",
+    "developer": "開発者",
+    "you": "あなた",
     "attachmentAlt": "添付ファイル {{index}}",
     "replyPlaceholder": "返信を入力...",
     "send": "送信",

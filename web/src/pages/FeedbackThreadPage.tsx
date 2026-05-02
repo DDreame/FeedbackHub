@@ -11,6 +11,7 @@ import {
 } from '../services/api';
 import { useStatusNotification } from '../hooks/useStatusNotification';
 import { StatusNotificationBanner } from '../components/StatusNotificationBanner';
+import { CloseIcon, FileIcon, ArchiveIcon, MemoIcon, SendIcon } from '../components/icons';
 
 export function FeedbackThreadPage() {
   const { t } = useTranslation();
@@ -266,7 +267,7 @@ export function FeedbackThreadPage() {
                                 title={dataUrl.startsWith('data:application/pdf') ? 'PDF' : dataUrl.includes('zip') ? 'ZIP' : 'DOCX'}
                               >
                                 <span className="file-icon-emoji">
-                                  {dataUrl.startsWith('data:application/pdf') ? '📄' : dataUrl.includes('zip') ? '📦' : '📝'}
+                                  {dataUrl.startsWith('data:application/pdf') ? <FileIcon /> : dataUrl.includes('zip') ? <ArchiveIcon /> : <MemoIcon />}
                                 </span>
                               </button>
                             );
@@ -295,7 +296,7 @@ export function FeedbackThreadPage() {
                 className="btn-primary"
                 disabled={!replyContent.trim() || isSending}
               >
-                {isSending ? t('thread.sending') : t('thread.send')}
+                {isSending ? t('thread.sending') : <><SendIcon /> {t('thread.send')}</>}
               </button>
             </form>
           </>
@@ -321,7 +322,7 @@ export function FeedbackThreadPage() {
                 onClick={() => setExpandedAttachment(null)}
                 aria-label={t('history.close')}
               >
-                ✕
+                <CloseIcon />
               </button>
             </div>
           </div>

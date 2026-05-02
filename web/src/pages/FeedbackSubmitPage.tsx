@@ -5,6 +5,7 @@ import {
   createThreadAtomic,
   STATUS_LABELS,
 } from '../services/api';
+import { BugIcon, BulbIcon, QuestionIcon, MemoIcon, CameraIcon, FileIcon, ArchiveIcon, CheckIcon, CloseIcon, SendIcon } from '../components/icons';
 import { formatRefNumber } from '../utils/formatRefNumber';
 
 const MAX_ATTACHMENTS = 5;
@@ -45,11 +46,21 @@ export function FeedbackSubmitPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const CATEGORIES: (Category & { label: string })[] = [
-    { id: '遇到问题', icon: '❌', label: t('submit.encounteredProblem') },
-    { id: '想提建议', icon: '💡', label: t('submit.haveSuggestion') },
-    { id: '想问一下', icon: '❓', label: t('submit.haveQuestion') },
-    { id: '其他', icon: '📝', label: t('submit.other') },
+    { id: '遇到问题',  icon: 'bug',        label: t('submit.encounteredProblem') },
+    { id: '想提建议', icon: 'suggestion',  label: t('submit.haveSuggestion') },
+    { id: '想问一下', icon: 'question',    label: t('submit.haveQuestion') },
+    { id: '其他',     icon: 'other',       label: t('submit.other') },
   ];
+
+  const categoryIconEl = (icon: string) => {
+    switch (icon) {
+      case 'bug':        return <BugIcon />;
+      case 'suggestion': return <BulbIcon />;
+      case 'question':   return <QuestionIcon />;
+      case 'other':      return <MemoIcon />;
+      default:           return null;
+    }
+  };
 
   // Unsaved changes guard
   const hasUnsavedContent = step === 'form' && (content.trim().length > 0 || attachments.length > 0);
@@ -212,7 +223,7 @@ export function FeedbackSubmitPage() {
                   onClick={() => handleCategorySelect(cat.id)}
                   type="button"
                 >
-                  <span className="category-icon">{cat.icon}</span>
+                  <span className="category-icon">{categoryIconEl(cat.icon)}</span>
                   <span className="category-label">{cat.label}</span>
                 </button>
               ))}
@@ -226,7 +237,7 @@ export function FeedbackSubmitPage() {
             <div className="form-group">
               <label className="form-label">{t('submit.feedbackType')}</label>
               <div className="selected-category">
-                {CATEGORIES.find((c) => c.id === selectedCategory)?.icon}{' '}
+                {categoryIconEl(CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '')}{' '}
                 {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
               </div>
             </div>
@@ -270,7 +281,7 @@ export function FeedbackSubmitPage() {
                   id="attachment-input"
                 />
                 <label htmlFor="attachment-input" className="attachment-upload-label">
-                  <span className="attachment-upload-icon">📷</span>
+                  <span className="attachment-upload-icon"><CameraIcon /></span>
                   <span>{t('submit.attachScreenshot')}</span>
                 </label>
                 {attachments.length > 0 && (
@@ -300,7 +311,7 @@ export function FeedbackSubmitPage() {
                               title={dataUrl.startsWith('data:application/pdf') ? 'PDF' : dataUrl.includes('zip') ? 'ZIP' : 'DOCX'}
                             >
                               <span className="file-icon-emoji">
-                                {dataUrl.startsWith('data:application/pdf') ? '📄' : dataUrl.includes('zip') ? '📦' : '📝'}
+                                {dataUrl.startsWith('data:application/pdf') ? <FileIcon /> : dataUrl.includes('zip') ? <ArchiveIcon /> : <MemoIcon />}
                               </span>
                             </button>
                           )}
@@ -310,7 +321,7 @@ export function FeedbackSubmitPage() {
                             onClick={() => removeAttachment(index)}
                             aria-label={t('submit.remove')}
                           >
-                            ✕
+                            <CloseIcon />
                           </button>
                         </div>
                       );
@@ -361,7 +372,7 @@ export function FeedbackSubmitPage() {
                 {t('submit.back')}
               </button>
               <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                {isSubmitting ? t('submit.submitting') : t('submit.submit')}
+                {isSubmitting ? t('submit.submitting') : <><SendIcon /> {t('submit.submit')}</>}
               </button>
             </div>
           </form>
@@ -370,7 +381,7 @@ export function FeedbackSubmitPage() {
         {/* Step 3: Confirmation */}
         {step === 'confirmation' && submitResult && (
           <div className="confirmation-page">
-            <div className="confirmation-icon">✅</div>
+            <div className="confirmation-icon"><CheckIcon /></div>
             <h2>{t('submit.confirmTitle')}</h2>
             <p className="lead">{t('submit.confirmDescription')}</p>
 
@@ -384,7 +395,7 @@ export function FeedbackSubmitPage() {
               <div className="detail-row">
                 <span className="detail-label">{t('submit.type')}</span>
                 <span className="detail-value">
-                  {CATEGORIES.find((c) => c.id === selectedCategory)?.icon}{' '}
+                  {categoryIconEl(CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '')}{' '}
                   {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
                 </span>
               </div>
@@ -429,7 +440,7 @@ export function FeedbackSubmitPage() {
                 onClick={() => setExpandedAttachment(null)}
                 aria-label={t('history.close')}
               >
-                ✕
+                <CloseIcon />
               </button>
             </div>
           </div>

@@ -8,6 +8,7 @@ import {
 } from '../services/api';
 import { formatRefNumber } from '../utils/formatRefNumber';
 import { highlightKeyword } from '../utils/highlightKeyword';
+import { CloseIcon, ChevronDownIcon } from '../components/icons';
 import i18n from '../i18n';
 
 export function FeedbackHistoryPage() {
@@ -157,7 +158,7 @@ export function FeedbackHistoryPage() {
         {globalNotification && (
           <div className={`status-notification-banner banner-${globalNotification.status}`} role="alert">
             <span className="banner-message">{globalNotification.message}</span>
-            <button className="banner-dismiss" onClick={() => setGlobalNotification(null)} aria-label={t('history.close')}>✕</button>
+            <button className="banner-dismiss" onClick={() => setGlobalNotification(null)} aria-label={t('history.close')}><CloseIcon /></button>
           </div>
         )}
 
@@ -176,7 +177,7 @@ export function FeedbackHistoryPage() {
               onClick={() => setShowFilters(!showFilters)}
               aria-expanded={showFilters}
             >
-              {hasActiveFilters ? `${t('history.filter')} 🔽` : t('history.filter')}
+              {hasActiveFilters ? <>{t('history.filter')} <ChevronDownIcon /></> : t('history.filter')}
             </button>
           </div>
 

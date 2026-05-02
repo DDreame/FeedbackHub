@@ -1,4 +1,5 @@
 import type { StatusKey } from '../hooks/useStatusNotification';
+import { CloseIcon } from './icons';
 
 interface Props {
   message: string;
@@ -18,7 +19,7 @@ export function StatusNotificationBanner({ message, status, onDismiss }: Props) 
     <div className={`status-notification-banner ${STATUS_CLASSES[status]}`} role="alert">
       <span className="banner-message">{message}</span>
       <button className="banner-dismiss" onClick={onDismiss} aria-label="关闭">
-        ✕
+        <CloseIcon />
       </button>
     </div>
   );
