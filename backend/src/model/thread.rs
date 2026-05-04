@@ -54,10 +54,11 @@ impl std::fmt::Display for ThreadStatus {
 }
 
 /// Who authored a message.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, Default)]
 #[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorType {
+    #[default]
     Reporter,
     Developer,
     System,
@@ -225,6 +226,7 @@ pub struct ContextSnapshotInput {
 /// Input for adding a message to a thread.
 #[derive(Debug, Deserialize)]
 pub struct AddMessageRequest {
+    #[serde(default)]
     pub author_type: AuthorType,
     pub body: String,
     /// Base64 data URLs of attached images.
