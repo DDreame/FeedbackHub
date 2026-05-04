@@ -226,10 +226,12 @@ pub struct ContextSnapshotInput {
 /// Input for adding a message to a thread.
 #[derive(Debug, Deserialize)]
 pub struct AddMessageRequest {
+    /// Ignored — backend forces author_type per-route (reporter or developer).
     #[serde(default)]
     pub author_type: AuthorType,
     pub body: String,
     /// Base64 data URLs of attached images.
+    #[serde(default)]
     pub attachments: Option<Vec<String>>,
 }
 

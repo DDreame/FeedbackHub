@@ -11,6 +11,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::SafeJson;
 use crate::email::{
     self, EmailPayload, SmtpConfig, template_close_notification, template_reply_notification,
     template_status_change_notification,
@@ -479,7 +480,7 @@ async fn dev_export_csv(
 async fn dev_reply(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
-    Json(payload): Json<AddMessageRequest>,
+    SafeJson(payload): SafeJson<AddMessageRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let exists: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
