@@ -7,6 +7,13 @@ http://feedback.dreamful.life {
         reverse_proxy backend:3000
     }
 
+    # Privacy policy static page
+    handle_path /privacy/* {
+        root * /static/privacy
+        file_server
+    }
+    redir /privacy /privacy/
+
     # SPA — serve frontend nginx
     handle {
         reverse_proxy frontend:80

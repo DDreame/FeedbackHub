@@ -58,6 +58,7 @@ services:
       - "80:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./static:/static
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
