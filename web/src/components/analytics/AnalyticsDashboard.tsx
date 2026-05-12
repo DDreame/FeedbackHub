@@ -1,4 +1,4 @@
-import { type FC, useState } from 'react';
+import { type FC } from 'react';
 
 type DateRange = '7d' | '30d' | '90d';
 

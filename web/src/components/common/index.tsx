@@ -64,7 +64,7 @@ interface ToastProps {
 }
 
 export const Toast: FC<ToastProps> = ({ message, onDone, duration = 2500 }) => {
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     timerRef.current = setTimeout(onDone, duration);

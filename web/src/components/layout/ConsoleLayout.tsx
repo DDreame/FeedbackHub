@@ -101,11 +101,6 @@ export const ConsoleLayout: FC<ConsoleLayoutProps> = ({
     onMobileBack?.();
   }, [onMobileBack]);
 
-  /* ── Show conversation overlay (called by ticket list on mobile) ── */
-  const showMobileConversation = useCallback(() => {
-    if (isMobile) setMobileConvActive(true);
-  }, [isMobile]);
-
   /* ── Render helpers ── */
   const showTicketList = !isMobile || (isMobile && !mobileConvActive);
   const showConversation = !isMobile || (isMobile && mobileConvActive);

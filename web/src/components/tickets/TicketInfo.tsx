@@ -5,14 +5,6 @@ import {
   STATUS_LABELS,
 } from '../../services/api';
 
-/* Status colors for the dropdown dot */
-const STATUS_COLORS: Record<string, string> = {
-  received: 'var(--fh-status-unread)',
-  in_review: 'var(--fh-status-in-progress)',
-  waiting_for_user: 'var(--fh-status-waiting)',
-  closed: 'var(--fh-status-closed)',
-};
-
 interface TicketInfoProps {
   ticket: DeveloperThreadResponse;
   internalNotes: DevMessageResponse[];

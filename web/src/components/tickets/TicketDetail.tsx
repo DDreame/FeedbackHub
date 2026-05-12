@@ -13,7 +13,7 @@ export const TicketDetail: FC<TicketDetailProps> = ({
   messages,
   templates,
   onSendReply,
-  isMobileActive,
+  isMobileActive: _isMobileActive,
 }) => {
   const [composerValue, setComposerValue] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
