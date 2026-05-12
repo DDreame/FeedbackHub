@@ -110,7 +110,7 @@ void main() {
     test('flow_drop event serializes correctly', () {
       const event = AnalyticsEvent(
         eventType: 'flow_drop',
-        eventName: 'record_dropped_attach_photo',
+        eventName: 'record_attach_photo',
         properties: {
           'flow': 'record',
           'drop_step': 'attach_photo',
@@ -123,7 +123,7 @@ void main() {
 
       final json = event.toJson();
       expect(json['event_type'], 'flow_drop');
-      expect(json['event_name'], 'record_dropped_attach_photo');
+      expect(json['event_name'], 'record_attach_photo');
       expect(json['properties']['drop_step'], 'attach_photo');
       expect(json['properties']['drop_step_index'], 2);
     });
@@ -375,7 +375,7 @@ void main() {
       expect(events.single['event_name'], 'record_completed');
     });
 
-    test('trackFlowDrop produces event_name "{flow}_dropped_{step}"',
+    test('trackFlowDrop produces event_name "{flow}_{dropStep}"',
         () async {
       client.setOptIn(true);
       client.trackFlowDrop('record', 'attach_photo', 2);
@@ -385,10 +385,10 @@ void main() {
 
       final events = _lastEvents(log);
       expect(events.single['event_type'], 'flow_drop');
-      expect(events.single['event_name'], 'record_dropped_attach_photo');
+      expect(events.single['event_name'], 'record_attach_photo');
     });
 
-    test('trackAppOpen produces event_name "app_open"', () async {
+    test('trackAppOpen produces event_name "app_opened"', () async {
       client.setOptIn(true);
       client.trackAppOpen();
 
@@ -397,7 +397,7 @@ void main() {
 
       final events = _lastEvents(log);
       expect(events.single['event_type'], 'app_open');
-      expect(events.single['event_name'], 'app_open');
+      expect(events.single['event_name'], 'app_opened');
     });
 
     test('trackAppClose produces event_name "app_close"', () async {

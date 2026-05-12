@@ -57,8 +57,8 @@ abstract final class _EventNames {
       '${feature}_$action';
   static String flowStep(String flow, String step) => '${flow}_$step';
   static String flowComplete(String flow) => '${flow}_completed';
-  static String flowDrop(String flow, String step) => '${flow}_dropped_$step';
-  static const appOpen = 'app_open';
+  static String flowDrop(String flow, String step) => '${flow}_$step';
+  static const appOpen = 'app_opened';
   static const appClose = 'app_close';
   static const coldStart = 'cold_start';
   static const crash = 'crash';
@@ -233,7 +233,10 @@ class AnalyticsClient {
 
   /// Track a feature interaction (e.g. photo added, recording started).
   ///
-  /// Event name: `'{feature}_{action}'` (e.g. `'photo_add'`).
+  /// Event name: `'{feature}_{action}'` (e.g. `'photo_added'`).
+  ///
+  /// **Convention**: [action] should use past tense (`'added'`, `'started'`,
+  /// `'saved'`, `'deleted'`) to match the backend naming convention.
   void trackFeatureUse(String feature, String action) {
     _enqueue(
       AnalyticsEvent(
@@ -294,7 +297,7 @@ class AnalyticsClient {
 
   /// Track where a user dropped off in a multi-step flow.
   ///
-  /// Event name: `'{flow}_dropped_{step}'` (e.g. `'record_dropped_attach_photo'`).
+  /// Event name: `'{flow}_{dropStep}'` (e.g. `'record_screen_dismissed_without_save'`).
   void trackFlowDrop(String flow, String dropStep, int dropStepIndex) {
     _enqueue(
       AnalyticsEvent(
