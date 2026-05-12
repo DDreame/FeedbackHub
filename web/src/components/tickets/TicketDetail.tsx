@@ -5,7 +5,6 @@ interface TicketDetailProps {
   messages: DevMessageResponse[];
   templates: ResponseTemplateRow[];
   onSendReply: (body: string) => void;
-  onAddNote: (body: string) => void;
   /** True when mobile overlay is active (shows back button from layout) */
   isMobileActive?: boolean;
 }

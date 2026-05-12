@@ -8,6 +8,8 @@ const STATUS_COLORS: Record<string, string> = {
   closed: 'var(--fh-status-closed)',
 };
 
+export { STATUS_COLORS };
+
 const STATUS_NAMES: Record<string, string> = {
   received: '未读',
   in_review: '处理中',

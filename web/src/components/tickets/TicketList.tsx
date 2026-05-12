@@ -1,13 +1,6 @@
 import { type FC } from 'react';
 import { type DeveloperThreadResponse } from '../../services/api';
-
-/* Status dot colors — matches theme tokens */
-const STATUS_COLORS: Record<string, string> = {
-  received: 'var(--fh-status-unread)',
-  in_review: 'var(--fh-status-in-progress)',
-  waiting_for_user: 'var(--fh-status-waiting)',
-  closed: 'var(--fh-status-closed)',
-};
+import { STATUS_COLORS } from '../common';
 
 interface TicketListProps {
   tickets: DeveloperThreadResponse[];
