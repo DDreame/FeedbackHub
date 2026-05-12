@@ -135,11 +135,13 @@ pub fn app_with_state(state: AppState) -> Router {
                 );
             },
         );
+    let state7 = state.clone();
     health
         .merge(app_routes(state))
         .merge(feedback_routes(state2))
         .merge(project_routes(state3))
         .merge(routes::threads::thread_routes(state4))
+        .merge(routes::analytics::analytics_routes(state7))
         .merge(dev_api)
         .layer(trace_layer)
 }
