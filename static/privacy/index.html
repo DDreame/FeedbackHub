@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy / 隐私政策 — Then</title>
+    <style>
+        :root {
+            --paper: #F7F4EF;
+            --paper-dark: #EDE8E0;
+            --ink: #1a1a1a;
+            --ink-light: #555;
+            --accent: #4a4a4a;
+            --border: #d4cfc6;
+            --mono: 'DM Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+            --serif: 'Lora', 'Georgia', 'Times New Roman', serif;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--paper);
+            color: var(--ink);
+            font-family: var(--serif);
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        header {
+            text-align: center;
+            padding-bottom: 40px;
+            margin-bottom: 48px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .wordmark {
+            font-family: var(--mono);
+            font-size: 13px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ink-light);
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            font-family: var(--serif);
+            font-size: 28px;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--ink-light);
+        }
+
+        .version-switch {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .version-switch button {
+            font-family: var(--mono);
+            font-size: 13px;
+            background: none;
+            border: 1px solid var(--border);
+            padding: 8px 20px;
+            cursor: pointer;
+            color: var(--ink-light);
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+
+        .version-switch button.active {
+            background: var(--ink);
+            color: var(--paper);
+            border-color: var(--ink);
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section.zh { display: block; }
+        .section.en { display: none; }
+
+        h2 {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        p {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--ink);
+        }
+
+        footer {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--ink-light);
+        }
+
+        a {
+            color: var(--ink);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 32px 16px 60px; }
+            h1 { font-size: 24px; }
+            p { font-size: 15px; }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="wordmark">Then</div>
+            <h1>Privacy Policy &nbsp;/&nbsp; 隐私政策</h1>
+            <div class="subtitle">Last updated: 2026-05-04</div>
+        </header>
+
+        <div class="version-switch">
+            <button id="btn-zh" class="active" onclick="switchLang('zh')">中文</button>
+            <button id="btn-en" onclick="switchLang('en')">English</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Chinese                                                       -->
+        <!-- ============================================================ -->
+        <div id="content-zh" class="section zh">
+            <div class="section">
+                <h2>1. 数据存储</h2>
+                <p>Then 是一款私人日记应用。您创建的所有内容（日记、语音、照片）默认仅存储在您的设备本地。我们不收集、不查看、不访问您的任何日记内容。</p>
+            </div>
+
+            <div class="section">
+                <h2>2. 加密备份</h2>
+                <p>您可以选择将加密后的备份上传至云端。备份使用 AES-256 端到端加密，加密密钥由您的恢复短语派生。恢复短语是您数据的唯一钥匙——请妥善保管。即使是 Then 的开发者，也无法解密您的备份内容。</p>
+            </div>
+
+            <div class="section">
+                <h2>3. 无账户体系</h2>
+                <p>Then 不创建用户账户，不要求注册或登录。您的身份通过设备本地的加密密钥标识，我们不会将您的数据与任何个人信息关联。</p>
+            </div>
+
+            <div class="section">
+                <h2>4. 无广告，无追踪</h2>
+                <p>Then 不投放广告，不使用任何追踪或分析工具。我们不会将您的数据出售或分享给任何第三方。</p>
+            </div>
+
+            <div class="section">
+                <h2>5. 反馈功能</h2>
+                <p>如果您选择使用反馈功能联系作者，您发送的消息将通过加密通道传输。反馈内容仅用于改进产品质量，不会被用于其他目的。</p>
+            </div>
+
+            <div class="section">
+                <h2>6. 数据删除</h2>
+                <p>您可以随时在应用设置中删除所有本地数据。备份数据可通过恢复短语访问并删除。</p>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- English                                                       -->
+        <!-- ============================================================ -->
+        <div id="content-en" class="section en">
+            <div class="section">
+                <h2>1. Data Storage</h2>
+                <p>Then is a private journaling app. All content you create (entries, recordings, photos) is stored locally on your device by default. We do not collect, view, or access any of your journal content.</p>
+            </div>
+
+            <div class="section">
+                <h2>2. Encrypted Backup</h2>
+                <p>You may optionally upload encrypted backups to the cloud. Backups use AES-256 end-to-end encryption, with the encryption key derived from your recovery phrase. Your recovery phrase is the sole key to your data — please keep it safe. Even the developers of Then cannot decrypt your backup content.</p>
+            </div>
+
+            <div class="section">
+                <h2>3. No Account System</h2>
+                <p>Then does not create user accounts and requires no registration or login. Your identity is identified by a locally-derived encryption key. We do not associate your data with any personal information.</p>
+            </div>
+
+            <div class="section">
+                <h2>4. No Ads, No Tracking</h2>
+                <p>Then displays no advertisements and uses no tracking or analytics tools. We do not sell or share your data with any third party.</p>
+            </div>
+
+            <div class="section">
+                <h2>5. Feedback Feature</h2>
+                <p>If you use the feedback feature to contact the developer, your messages are transmitted over an encrypted channel. Feedback content is used solely to improve the product and will not be used for other purposes.</p>
+            </div>
+
+            <div class="section">
+                <h2>6. Data Deletion</h2>
+                <p>You may delete all local data at any time from the app settings. Backup data can be accessed and deleted using your recovery phrase.</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>ThenApp &copy; 2026 &nbsp;·&nbsp; <a href="https://feedback.dreamful.life">FeedbackHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function switchLang(lang) {
+            document.getElementById('btn-zh').classList.toggle('active', lang === 'zh');
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            document.getElementById('content-zh').style.display = lang === 'zh' ? 'block' : 'none';
+            document.getElementById('content-en').style.display = lang === 'en' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>

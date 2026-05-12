@@ -54,10 +54,11 @@ impl std::fmt::Display for ThreadStatus {
 }
 
 /// Who authored a message.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, Default)]
 #[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorType {
+    #[default]
     Reporter,
     Developer,
     System,
@@ -97,6 +98,7 @@ pub struct ContextSnapshot {
 pub struct FeedbackThread {
     pub id: Uuid,
     pub reporter_id: Uuid,
+    #[sqlx(default)]
     pub app_id: Option<Uuid>,
     pub reporter_contact: Option<String>,
     pub category: String,
@@ -123,6 +125,7 @@ pub struct FeedbackThread {
     // Unread tracking for internal notes
     pub last_internal_note_at: Option<DateTime<Utc>>,
     // Soft delete recovery tracking
+    #[sqlx(default)]
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
@@ -159,16 +162,17 @@ pub struct FeedbackMessage {
 // ---------------------------------------------------------------------------
 
 /// Input for creating a new feedback thread (SDK → API).
-/// reporter_id is accepted from header (X-Reporter-Id), body field is informational.
+/// reporter_id is accepted from header (X-Reporter-Id); body field is ignored.
+/// context is Option because Flutter sends `"context": null` explicitly.
 #[derive(Debug, Deserialize)]
 pub struct CreateThreadRequest {
     #[serde(default)]
-    pub reporter_id: Uuid,
+    pub reporter_id: Option<String>,
     pub reporter_contact: Option<String>,
     pub category: String,
     pub summary: String,
     #[serde(default)]
-    pub context: ContextSnapshotInput,
+    pub context: Option<ContextSnapshotInput>,
 }
 
 /// Input for anonymous thread creation (no reporter identity required).
@@ -177,7 +181,8 @@ pub struct CreateThreadAnonymousRequest {
     pub reporter_contact: Option<String>,
     pub category: String,
     pub summary: String,
-    pub context: ContextSnapshotInput,
+    #[serde(default)]
+    pub context: Option<ContextSnapshotInput>,
 }
 
 /// Input for atomic create-thread-with-message operation.
@@ -201,7 +206,7 @@ pub struct CreateThreadAtomicResponse {
     pub reference_number: String,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ContextSnapshotInput {
     #[serde(default)]
     pub app_version: String,
@@ -221,9 +226,12 @@ pub struct ContextSnapshotInput {
 /// Input for adding a message to a thread.
 #[derive(Debug, Deserialize)]
 pub struct AddMessageRequest {
+    /// Ignored — backend forces author_type per-route (reporter or developer).
+    #[serde(default)]
     pub author_type: AuthorType,
     pub body: String,
     /// Base64 data URLs of attached images.
+    #[serde(default)]
     pub attachments: Option<Vec<String>>,
 }
 

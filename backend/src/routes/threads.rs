@@ -141,16 +141,17 @@ async fn create_thread(
     let id = Uuid::now_v7();
     let reference_number = generate_reference_number();
     let now = Utc::now();
+    let ctx = payload.context.unwrap_or_default();
     let context = ContextSnapshot {
-        app_version: payload.context.app_version,
-        build_number: payload.context.build_number,
-        os_name: payload.context.os_name,
-        os_version: payload.context.os_version,
-        device_model: payload.context.device_model,
-        locale: payload.context.locale,
-        current_route: payload.context.current_route,
+        app_version: ctx.app_version,
+        build_number: ctx.build_number,
+        os_name: ctx.os_name,
+        os_version: ctx.os_version,
+        device_model: ctx.device_model,
+        locale: ctx.locale,
+        current_route: ctx.current_route,
         captured_at: now,
-        reporter_account_id: payload.context.reporter_account_id,
+        reporter_account_id: ctx.reporter_account_id,
     };
 
     // Ensure reporters record exists first (FK constraint on feedback_threads.reporter_id)
@@ -263,16 +264,17 @@ async fn create_thread_atomic(
     let thread_id = Uuid::now_v7();
     let reference_number = generate_reference_number();
     let now = Utc::now();
+    let ctx = payload.thread.context.clone().unwrap_or_default();
     let context = ContextSnapshot {
-        app_version: payload.thread.context.app_version.clone(),
-        build_number: payload.thread.context.build_number.clone(),
-        os_name: payload.thread.context.os_name.clone(),
-        os_version: payload.thread.context.os_version.clone(),
-        device_model: payload.thread.context.device_model.clone(),
-        locale: payload.thread.context.locale.clone(),
-        current_route: payload.thread.context.current_route.clone(),
+        app_version: ctx.app_version,
+        build_number: ctx.build_number,
+        os_name: ctx.os_name,
+        os_version: ctx.os_version,
+        device_model: ctx.device_model,
+        locale: ctx.locale,
+        current_route: ctx.current_route,
         captured_at: now,
-        reporter_account_id: payload.thread.context.reporter_account_id.clone(),
+        reporter_account_id: ctx.reporter_account_id,
     };
 
     // Use a transaction for atomicity
@@ -339,7 +341,7 @@ async fn create_thread_atomic(
         )
     })?;
 
-    let message_id = if let Some(body) = &payload.initial_message {
+    let _message_id = if let Some(body) = &payload.initial_message {
         let msg_id = Uuid::now_v7();
         sqlx::query(
             r#"INSERT INTO feedback_messages (id, thread_id, author_type, body, attachments, created_at, is_internal) VALUES ($1, $2, 'reporter', $3, $4, $5, FALSE)"#,
@@ -411,14 +413,22 @@ async fn create_thread_atomic(
         )
     })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(CreateThreadAtomicResponse {
-            thread_id,
-            message_id,
-            reference_number,
-        }),
-    ))
+    // Return full ThreadResponse so Flutter SDK's Thread.fromJson can parse it
+    let thread_response = ThreadResponse {
+        id: thread_id,
+        reporter_id,
+        reporter_contact: payload.thread.reporter_contact,
+        category: payload.thread.category,
+        status: "received".to_string(),
+        summary: payload.thread.summary,
+        latest_public_message_at: now,
+        created_at: now,
+        updated_at: now,
+        closed_at: None,
+        context,
+    };
+
+    Ok((StatusCode::CREATED, Json(thread_response)))
 }
 
 /// POST /v1/feedback/threads/anonymous
@@ -431,16 +441,17 @@ async fn create_thread_anonymous(
     let anonymous_reporter_id = Uuid::now_v7(); // Synthetic ID for anonymous threads
     let reference_number = generate_reference_number();
     let now = Utc::now();
+    let ctx = payload.context.unwrap_or_default();
     let context = ContextSnapshot {
-        app_version: payload.context.app_version,
-        build_number: payload.context.build_number,
-        os_name: payload.context.os_name,
-        os_version: payload.context.os_version,
-        device_model: payload.context.device_model,
-        locale: payload.context.locale,
-        current_route: payload.context.current_route,
+        app_version: ctx.app_version,
+        build_number: ctx.build_number,
+        os_name: ctx.os_name,
+        os_version: ctx.os_version,
+        device_model: ctx.device_model,
+        locale: ctx.locale,
+        current_route: ctx.current_route,
         captured_at: now,
-        reporter_account_id: payload.context.reporter_account_id,
+        reporter_account_id: ctx.reporter_account_id,
     };
 
     sqlx::query(
@@ -1137,6 +1148,64 @@ async fn check_reporter_unread(
     }))
 }
 
+/// GET /v1/feedback/threads/unread-summary
+/// Bulk check: does this reporter have any unread developer replies across all threads?
+/// Returns has_any_unread + list of thread IDs with pending replies.
+async fn get_unread_summary(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    let reporter_id = extract_reporter_id(&headers).ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "X-Reporter-Id header required".to_string(),
+        }),
+    ))?;
+
+    // Find all thread IDs where the reporter has unread developer public replies.
+    // Uses thread_views to track per-user last read timestamps.
+    let unread_threads: Vec<Uuid> = sqlx::query_scalar(
+        r#"SELECT ft.id
+        FROM feedback_threads ft
+        LEFT JOIN thread_views tv
+            ON tv.thread_id = ft.id
+            AND tv.user_id = $1
+            AND tv.user_type = 'reporter'
+        WHERE ft.reporter_id = $1
+          AND ft.deleted_at IS NULL
+          AND EXISTS (
+              SELECT 1 FROM feedback_messages fm
+              WHERE fm.thread_id = ft.id
+                AND fm.author_type = 'developer'
+                AND fm.is_internal = FALSE
+                AND fm.created_at > COALESCE(tv.last_read_at, ft.created_at)
+          )
+        ORDER BY ft.latest_public_message_at DESC"#,
+    )
+    .bind(reporter_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
+
+    #[derive(Serialize)]
+    struct UnreadSummaryResponse {
+        has_any_unread: bool,
+        unread_thread_ids: Vec<Uuid>,
+    }
+
+    Ok(Json(UnreadSummaryResponse {
+        has_any_unread: !unread_threads.is_empty(),
+        unread_thread_ids: unread_threads,
+    }))
+}
+
 /// POST /v1/feedback/threads/{thread_id}/recover
 /// Reporter recovers their soft-deleted thread within 7-day recovery window
 async fn recover_my_thread(
@@ -1469,6 +1538,7 @@ pub fn thread_routes(state: AppState) -> Router {
         // Reporter-side (auth via X-Reporter-Id header)
         .route("/v1/feedback/threads", post(create_thread))
         .route("/v1/feedback/threads/atomic", post(create_thread_atomic))
+        .route("/v1/feedback/unread-summary", get(get_unread_summary))
         .route("/v1/feedback/threads", get(list_my_threads))
         .route("/v1/feedback/threads/{thread_id}", get(get_my_thread))
         .route("/v1/feedback/threads/{thread_id}", delete(delete_my_thread))

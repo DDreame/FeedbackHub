@@ -2,6 +2,24 @@
 // Backend base URL - per #t6 contract, all endpoints are under /v1
 const API_BASE = '/v1';
 
+// Safely extract error message from a non-OK response.
+// Falls back to text/statusText when JSON parsing fails (e.g., proxy/tunnel HTML error pages).
+async function extractErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    return body?.error || body?.message || response.statusText || 'Unknown error';
+  } catch {
+    // Response body is not JSON (e.g. "Failed to connect" from reverse proxy)
+    try {
+      const text = await response.clone().text();
+      if (text) return text.slice(0, 200);
+    } catch {
+      // ignore text fallback failures
+    }
+    return response.statusText || `HTTP ${response.status}`;
+  }
+}
+
 export interface ContextSnapshotInput {
   app_version: string;
   build_number?: string;
@@ -181,8 +199,7 @@ export async function createThread(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create feedback');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -228,8 +245,7 @@ export async function createThreadAtomic(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create feedback');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -274,8 +290,7 @@ export async function listMyThreads(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch threads');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -314,8 +329,7 @@ export async function getNotificationPrefs(): Promise<NotificationPrefs> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch notification preferences');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -335,8 +349,7 @@ export async function updateNotificationPrefs(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update notification preferences');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -350,8 +363,7 @@ export async function listApps(): Promise<AppResponse[]> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch apps');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -374,8 +386,7 @@ export async function createApp(data: CreateAppRequest): Promise<AppResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create app');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -389,8 +400,7 @@ export async function getThread(threadId: string): Promise<ThreadResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -404,8 +414,7 @@ export async function listMessages(threadId: string): Promise<MessageResponse[]>
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch messages');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -419,8 +428,7 @@ export async function deleteThread(threadId: string): Promise<{ status: string }
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete feedback');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -445,8 +453,7 @@ export async function addMessage(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to send message');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -469,8 +476,7 @@ export async function getPublicThreadStatus(threadId: string): Promise<PublicSta
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch status');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -587,8 +593,7 @@ export async function devListThreads(
   const response = await devApiFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch threads');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -601,8 +606,7 @@ export async function devGetThread(threadId: string): Promise<DeveloperThreadRes
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -615,8 +619,7 @@ export async function devListMessages(threadId: string): Promise<DevMessageRespo
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch messages');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -638,8 +641,7 @@ export async function devAddReply(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to send reply');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -660,8 +662,7 @@ export async function devUpdateStatus(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update status');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -683,8 +684,7 @@ export async function devAddInternalNote(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to add internal note');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -725,8 +725,7 @@ export async function devAssign(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to assign thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -740,8 +739,7 @@ export async function devUnassign(threadId: string): Promise<{ status: string }>
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to unassign thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -752,8 +750,7 @@ export async function devListTags(): Promise<TagResponse[]> {
   const response = await devApiFetch(`${DEV_API_BASE}/tags`, { method: 'GET' });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch tags');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -773,8 +770,7 @@ export async function devCreateTag(data: CreateTagRequest): Promise<TagResponse>
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create tag');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -787,8 +783,7 @@ export async function devDeleteTag(tagId: string): Promise<{ message: string }> 
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete tag');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -802,8 +797,7 @@ export async function devListThreadTags(threadId: string): Promise<TagResponse[]
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch thread tags');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -824,8 +818,7 @@ export async function devAddTagToThread(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to add tag to thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -842,8 +835,7 @@ export async function devRemoveTagFromThread(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to remove tag from thread');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -867,8 +859,7 @@ export async function listApiKeys(): Promise<ApiKeyRow[]> {
   const response = await devApiFetch(`${DEV_API_BASE}/api-keys`, { method: 'GET' });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch API keys');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -881,8 +872,7 @@ export async function revokeApiKey(keyId: string): Promise<{ message: string }> 
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to revoke API key');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -921,8 +911,7 @@ export async function listResponseTemplates(): Promise<ResponseTemplateRow[]> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch templates');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -939,8 +928,7 @@ export async function createResponseTemplate(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create template');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -958,8 +946,7 @@ export async function updateResponseTemplate(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update template');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();
@@ -972,8 +959,7 @@ export async function deleteResponseTemplate(id: string): Promise<{ message: str
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete template');
+    throw new Error(await extractErrorMessage(response));
   }
 
   return response.json();

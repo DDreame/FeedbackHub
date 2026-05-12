@@ -8,9 +8,11 @@ use axum::{
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
+use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::SafeJson;
 use crate::email::{
     self, EmailPayload, SmtpConfig, template_close_notification, template_reply_notification,
     template_status_change_notification,
@@ -315,6 +317,59 @@ async fn dev_list_threads(
     }))
 }
 
+/// GET /v1/dev/feedback/threads/summary
+/// Returns counts grouped by status for the inbox overview.
+async fn dev_thread_summary(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    #[derive(Serialize)]
+    struct StatusCount {
+        status: String,
+        count: i64,
+    }
+
+    #[derive(Serialize)]
+    struct ThreadSummaryResponse {
+        total: i64,
+        by_status: Vec<StatusCount>,
+    }
+
+    let rows = sqlx::query(
+        r#"SELECT status, COUNT(*) as count
+           FROM feedback_threads
+           WHERE status != 'deleted'
+           GROUP BY status
+           ORDER BY COUNT(*) DESC"#,
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "failed to fetch thread summary");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "failed to fetch summary".into(),
+            }),
+        )
+    })?;
+
+    let counts: Vec<StatusCount> = rows
+        .iter()
+        .map(|row| {
+            let status: String = row.get(0);
+            let count: i64 = row.get(1);
+            StatusCount { status, count }
+        })
+        .collect();
+
+    let total: i64 = counts.iter().map(|c| c.count).sum();
+
+    Ok(Json(ThreadSummaryResponse {
+        total,
+        by_status: counts,
+    }))
+}
+
 /// GET /v1/dev/feedback/threads/:thread_id
 async fn dev_get_thread(
     State(state): State<AppState>,
@@ -479,7 +534,7 @@ async fn dev_export_csv(
 async fn dev_reply(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
-    Json(payload): Json<AddMessageRequest>,
+    SafeJson(payload): SafeJson<AddMessageRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let exists: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM feedback_threads WHERE id = $1)")
@@ -2013,6 +2068,7 @@ pub struct MergeThreadsRequest {
 pub fn dev_routes(state: AppState) -> Router {
     Router::new()
         .route("/v1/dev/feedback/threads", get(dev_list_threads))
+        .route("/v1/dev/feedback/threads/summary", get(dev_thread_summary))
         .route("/v1/dev/feedback/threads/{thread_id}", get(dev_get_thread))
         .route(
             "/v1/dev/feedback/threads/{thread_id}/reply",

@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod apps;
 pub mod developer;
 pub mod feedback;

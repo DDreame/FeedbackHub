@@ -1,4 +1,4 @@
-feedback.dreamful.life {
+http://feedback.dreamful.life {
     # API proxy to Rust backend
     handle_path /api/* {
         reverse_proxy backend:3000
@@ -6,6 +6,13 @@ feedback.dreamful.life {
     handle_path /v1/* {
         reverse_proxy backend:3000
     }
+
+    # Privacy policy static page
+    handle_path /privacy/* {
+        root * /static/privacy
+        file_server
+    }
+    redir /privacy /privacy/
 
     # SPA — serve frontend nginx
     handle {
