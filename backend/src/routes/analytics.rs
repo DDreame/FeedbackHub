@@ -15,18 +15,18 @@ struct ErrorResponse {
 /// Accepts a batch of analytics events, validates each against the whitelist,
 /// and bulk-inserts valid events into `analytics_events`.
 ///
-/// Invalid events (unknown event_name) are silently skipped — the client SDK
-/// already enforces the whitelist; server-side validation is a second line of
+/// Invalid events (unknown event_type) are silently skipped — the client SDK
+/// already enforces typed API; server-side validation is a second line of
 /// defence, not a client-facing error.
 async fn ingest_events(
     State(state): State<AppState>,
     Json(payload): Json<IngestEventsRequest>,
 ) -> Result<Json<IngestEventsResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Filter to whitelisted events only
+    // Filter to whitelisted event types only (event_name is dynamic/freeform)
     let valid: Vec<_> = payload
         .events
         .into_iter()
-        .filter(|e| analytics::is_allowed_event(&e.event_name))
+        .filter(|e| analytics::is_allowed_event_type(&e.event_type))
         .collect();
 
     if valid.is_empty() {

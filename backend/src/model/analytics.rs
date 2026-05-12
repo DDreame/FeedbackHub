@@ -64,38 +64,30 @@ pub struct PopularFeature {
 }
 
 // ---------------------------------------------------------------------------
-// Event whitelist — all allowed event names
-// Must match the set agreed by SSS + RC + A2 in #App_Backend:18fc7811
+// Event type whitelist — validates event_type (category), not event_name.
+//
+// The SDK already enforces typed API (9 methods, no free-form strings) as the
+// first line of defence. We validate event_type (always one of 9 categories)
+// as the second line. event_name is kept as a flexible identifier for
+// dashboard grouping and is not used as a security gate.
+//
+// This eliminates the future-proof problem: new screens, features, or flows
+// require only a host-app parameter change, not a backend whitelist update.
 // ---------------------------------------------------------------------------
 
-pub const ALLOWED_EVENTS: &[&str] = &[
-    // Retention signals
-    "app_opened",
-    "app_foregrounded",
-    // Page views
-    "record_screen_opened",
-    "history_screen_opened",
-    "detail_screen_opened",
-    "settings_opened",
-    // Feature usage
-    "photo_added",
-    "recording_started",
-    "entry_saved",
-    "entry_deleted",
-    "entry_viewed",
-    "backup_triggered",
-    "backup_completed",
-    "backup_failed",
-    "feedback_opened",
-    "feedback_sent",
-    // Drop-off signals
-    "record_screen_dismissed_without_save",
-    "detail_back_without_comment",
-    "permission_denied",
-    "onboarding_exited",
+pub const ALLOWED_EVENT_TYPES: &[&str] = &[
+    "page_view",
+    "feature_use",
+    "flow_step",
+    "flow_complete",
+    "flow_drop",
+    "app_open",
+    "app_close",
+    "cold_start",
+    "crash",
 ];
 
-/// Returns true if the event_name is in the whitelist.
-pub fn is_allowed_event(name: &str) -> bool {
-    ALLOWED_EVENTS.contains(&name)
+/// Returns true if the event_type is in the whitelist.
+pub fn is_allowed_event_type(event_type: &str) -> bool {
+    ALLOWED_EVENT_TYPES.contains(&event_type)
 }
