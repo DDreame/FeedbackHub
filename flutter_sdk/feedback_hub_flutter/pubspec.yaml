@@ -1,0 +1,19 @@
+name: feedback_hub_flutter
+description: Flutter client SDK for FeedbackHub — anonymous feedback submission and conversation management.
+version: 0.1.0
+repository: https://github.com/DDreame/ThenApp/tree/main/feedback_hub_flutter
+
+environment:
+  sdk: ^3.4.0
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  device_info_plus: ^11.0.0
+  package_info_plus: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

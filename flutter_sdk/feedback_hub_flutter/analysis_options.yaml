@@ -1,0 +1,8 @@
+include: package:flutter/flutter.yaml
+
+linter:
+  rules:
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - avoid_print
+    - require_trailing_commas
